@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="ForkMark API", version="0.1.0")
+app = FastAPI(title="Cairn API", version="0.1.0")
 
 # 注册路由
 app.include_router(users.router)
@@ -29,7 +29,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 def root():
-    return {"message": "Hello ForkMark! 🍴"}
+    return {"message": "Hello Cairn! 🍴"}
 
 
 @app.get("/health")
