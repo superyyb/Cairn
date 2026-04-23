@@ -5,7 +5,14 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+from typing import Annotated
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.models.user import User
 
 # 密码哈希
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -53,3 +60,45 @@ def decode_access_token(token: str) -> dict | None:
         return payload
     except JWTError:
         return None
+
+
+# 告诉 FastAPI:这个 API 用 OAuth2 鉴权，从 Authorization Header 拿 Bearer token
+# tokenUrl 指向登录接口,这样 Swagger UI 能自动跳转登录
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+
+def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+) -> User:
+    """
+    解析 token 拿到当前用户。
+    所有需要登录才能访问的接口,都用 Depends(get_current_user)。
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无法验证身份",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # 1. 解码 token
+    payload = decode_access_token(token)
+    if payload is None:
+        raise credentials_exception
+    
+    # 2. 从 payload 拿 user_id
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        raise credentials_exception
+    
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        raise credentials_exception
+    
+    # 3. 查数据库
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    
+    return user

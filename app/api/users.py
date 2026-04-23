@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import hash_password
+from app.core.security import get_current_user, hash_password
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 
@@ -46,3 +46,11 @@ def count_users(db: Session = Depends(get_db)):
     """返回数据库里有多少用户(管理用)"""
     count = db.query(User).count()
     return {"total_users": count}
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """
+    获取当前登录用户的信息。
+    需要在 Header 里带 Authorization: Bearer <token>
+    """
+    return current_user
