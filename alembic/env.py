@@ -5,27 +5,27 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# ⬇⬇⬇ 新增:导入我们的配置和 models
+# 导入我们的配置和 models
 from app.core.config import settings
 from app.core.database import Base
 from app.models.user import User  # noqa: F401 (import 是为了让 Base 认识它)
-# ⬆⬆⬆
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# ⬇⬇⬇ 新增:动态设置数据库 URL
+# 动态设置数据库 URL
 config.set_main_option("sqlalchemy.url", settings.database_url)
-# ⬆⬆⬆
+
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# ⬇⬇⬇ 改动:指向我们的 Base.metadata
+# 指向我们的 Base.metadata
 target_metadata = Base.metadata
-# ⬆⬆⬆
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
