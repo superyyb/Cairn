@@ -9,6 +9,8 @@ from alembic import context
 from app.core.config import settings
 from app.core.database import Base
 from app.models.user import User  # noqa: F401 (import 是为了让 Base 认识它)
+from app.models.article import Article  # noqa: F401
+from app.models.tag import Tag  # noqa: F401
 
 
 # this is the Alembic Config object, which provides

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Magpie",
+  "version": "0.2.0",
+  "description": "Collect the shiny ideas you find on the web",
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Magpie - Save this page"
+  },
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "<all_urls>"
+  ]
+}
