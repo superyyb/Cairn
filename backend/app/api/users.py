@@ -41,12 +41,6 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-@router.get("/count")
-def count_users(db: Session = Depends(get_db)):
-    """Returns the total number of users in the database (admin use)."""
-    count = db.query(User).count()
-    return {"total_users": count}
-
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """
