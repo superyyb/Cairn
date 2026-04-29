@@ -75,7 +75,7 @@ export default function ArticlesPage() {
         </button>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {/* 页面标题 */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-stone-900">My Library</h2>
@@ -118,7 +118,7 @@ export default function ArticlesPage() {
 
         {/* 标签筛选栏 */}
         {!loading && !error && allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-2 mb-6 items-center">
             {allTags.map(tag => (
               <button
                 key={tag}
@@ -129,9 +129,17 @@ export default function ArticlesPage() {
                     : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
                 }`}
               >
-                {tag}
+                {tag}{selectedTag === tag ? ' ×' : ''}
               </button>
             ))}
+            {(selectedTag || searchQuery) && (
+              <button
+                onClick={() => { setSelectedTag(null); setSearchQuery('') }}
+                className="text-xs text-stone-400 hover:text-stone-700 underline ml-1 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
           </div>
         )}
 
