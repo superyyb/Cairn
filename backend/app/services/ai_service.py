@@ -28,32 +28,41 @@ class ArticleAnalysis(BaseModel):
 
 # ===== 主要 service 函数 =====
 
-def analyze_article(title: str, content: str | None) -> ArticleAnalysis | None:
+def analyze_article(
+    title: str,
+    content: str | None,
+    existing_tags: list[str] | None = None,
+) -> ArticleAnalysis | None:
     """
     用 LLM 分析文章,返回摘要和标签。
+    existing_tags: 库里已有的标签,让 LLM 优先复用而不是造新词。
     如果失败,返回 None(不抛异常,让上层决定是否重试)。
     """
     # 1. 防御性检查:内容太短就别浪费 API 调用
     if not content or len(content.strip()) < 100:
         logger.info(f"Skipping AI analysis: content too short ({len(content or '')} chars)")
         return None
-    
+
     # 2. 截断超长内容(GPT-4o-mini 上下文够大但没必要塞全文,省 token)
     truncated_content = content[:8000]  # 约 2000-3000 token
-    
+
     # 3. 构造 prompt
-    system_prompt = """You are a technical content analyst.
+    existing_tags_line = ""
+    if existing_tags:
+        existing_tags_line = f"\nExisting tags in the library: {', '.join(existing_tags)}\nReuse an existing tag when it fits. Only create a new tag if the concept is genuinely not covered.\n"
+
+    system_prompt = f"""You are a technical content analyst.
 Given a technical article, you produce:
 1. A concise summary (1-2 sentences) capturing the core idea
 2. 3-5 relevant lowercase tags for categorization
-
+{existing_tags_line}
 Tags should be technologies, concepts, or topics — not generic words.
-Examples of good tags: "kubernetes", "rust", "distributed systems", "rag", "react"
+Examples of good tags: "kubernetes", "rust", "distributed-systems", "rag", "react"
 Examples of bad tags: "tutorial", "interesting", "important"
 
 Respond with the same language as the article (English in / English out, 中文 in / 中文 out).
 """
-    
+
     user_prompt = f"""Title: {title}
 
 Content:
@@ -117,8 +126,11 @@ def process_article_in_background(article_id: int) -> None:
             logger.info(f"Background task: article {article_id} already processed, skipping")
             return
         
+        # 查库里已有的所有标签,传给 AI 做归一化参考
+        existing_tags = [t.name for t in db.query(Tag).all()]
+
         # 调 AI
-        analysis = analyze_article(article.title, article.content)
+        analysis = analyze_article(article.title, article.content, existing_tags)
         if not analysis:
             logger.warning(f"Background task: AI analysis failed for article {article_id}")
             return

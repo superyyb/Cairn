@@ -1,5 +1,10 @@
 import { type Article } from '@/lib/api'
 
+interface Props {
+  article: Article
+  onTagClick?: (tag: string) => void
+}
+
 function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '')
@@ -8,7 +13,7 @@ function extractDomain(url: string): string {
   }
 }
 
-export default function ArticleCard({ article }: { article: Article }) {
+export default function ArticleCard({ article, onTagClick }: Props) {
   const date = new Date(article.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -51,12 +56,13 @@ export default function ArticleCard({ article }: { article: Article }) {
       {article.tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {article.tags.map(tag => (
-            <span
+            <button
               key={tag.id}
-              className="bg-stone-100 text-stone-600 text-xs px-2.5 py-1 rounded-full"
+              onClick={() => onTagClick?.(tag.name)}
+              className="bg-stone-100 text-stone-600 text-xs px-2.5 py-1 rounded-full hover:bg-stone-200 transition-colors"
             >
               {tag.name}
-            </span>
+            </button>
           ))}
         </div>
       )}
