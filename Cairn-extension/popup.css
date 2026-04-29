@@ -65,32 +65,6 @@ header h1 {
     white-space: nowrap;
 }
 
-.save-btn {
-    width: 100%;
-    padding: 12px;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-.save-btn:hover {
-    background: #1d4ed8;
-}
-
-.save-btn:active {
-    background: #1e40af;
-}
-
-.save-btn:disabled {
-    background: #94a3b8;
-    cursor: not-allowed;
-}
-
 .status {
     margin-top: 12px;
     font-size: 13px;
@@ -116,4 +90,52 @@ footer {
 footer p {
     font-size: 11px;
     color: #999;
+}
+
+.hidden {
+    display: none;
+}
+
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+input:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.primary-btn:hover { background: #1d4ed8; }
+.primary-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+.text-btn {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    color: #666;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 12px;
+    text-decoration: underline;
 }

@@ -14,11 +14,11 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 #status_code=201 —— HTTP 规范:创建资源成功返回 201(Created)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """
-    注册新用户。
-    
-    - email: 合法的邮箱地址
-    - password: 至少 8 位
-    - username: 用户名
+    Register a new user.
+
+    - email: must be a valid email address
+    - password: at least 8 characters
+    - username: display name
     """
     # 1. 检查邮箱是否已被注册
     existing = db.query(User).filter(User.email == user_in.email).first()
@@ -43,14 +43,14 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/count")
 def count_users(db: Session = Depends(get_db)):
-    """返回数据库里有多少用户(管理用)"""
+    """Returns the total number of users in the database (admin use)."""
     count = db.query(User).count()
     return {"total_users": count}
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """
-    获取当前登录用户的信息。
-    需要在 Header 里带 Authorization: Bearer <token>
+    Get the current logged-in user's profile.
+    Requires Authorization: Bearer <token> in the request header.
     """
     return current_user

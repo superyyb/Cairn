@@ -17,10 +17,10 @@ def login(
     db: Session = Depends(get_db),
 ):
     """
-    用户登录,成功返回 JWT access token。
-    
-    OAuth2 标准:用 form-data 传 username 和 password。
-    注意:这里的 "username" 实际填邮箱地址。
+    User login. Returns a JWT access token on success.
+
+    OAuth2 standard: credentials are sent as form-data with username and password fields.
+    Note: the "username" field should contain the user's email address.
     """
     # 1. 根据邮箱查用户(form_data.username 实际填的是邮箱)
     user = db.query(User).filter(User.email == form_data.username).first()
@@ -29,7 +29,7 @@ def login(
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="邮箱或密码错误",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},  # OAuth2 规范要求
         )
     

@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Magpie",
+  "name": "Cairn",
   "version": "0.2.0",
   "description": "Collect the shiny ideas you find on the web",
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Magpie - Save this page"
+    "default_title": "Cairn - Save this page"
   },
   
   "permissions": [

@@ -5,14 +5,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    # database
+    # 数据库
     database_url: str
 
     # JWT
     secret_key: str
-    access_token_expire_minutes: int = 10080  # 7 days
-    algorithm: str = "HS256"  # JWT signature algo
+    access_token_expire_minutes: int = 10080
+    algorithm: str = "HS256"
+    
+    # OpenAI(新增)
+    openai_api_key: str
+    openai_model: str = "gpt-4o-mini"
 
 
-# 全局单例
 settings = Settings()
