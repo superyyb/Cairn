@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cairn — My Library</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f4;
+      color: #1c1917;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1c1917;
+      color: #fafaf9;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.05em; }
+    header span { font-size: 0.85rem; color: #a8a29e; }
+
+    .auth-bar {
+      background: #fff;
+      border-bottom: 1px solid #e7e5e4;
+      padding: 14px 40px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .auth-bar input {
+      flex: 1;
+      max-width: 560px;
+      padding: 8px 12px;
+      border: 1px solid #d6d3d1;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      color: #44403c;
+    }
+
+    .auth-bar button {
+      padding: 8px 18px;
+      background: #1c1917;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .auth-bar button:hover { background: #44403c; }
+    .auth-bar button:disabled { background: #a8a29e; cursor: not-allowed; }
+
+    #status-msg {
+      font-size: 0.82rem;
+      color: #78716c;
+      margin-left: 8px;
+    }
+
+    main {
+      max-width: 860px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+
+    #articles-count {
+      font-size: 0.85rem;
+      color: #78716c;
+      margin-bottom: 20px;
+    }
+
+    .article-card {
+      background: #fff;
+      border: 1px solid #e7e5e4;
+      border-radius: 10px;
+      padding: 22px 26px;
+      margin-bottom: 16px;
+      transition: box-shadow 0.15s;
+    }
+
+    .article-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+
+    .card-meta {
+      font-size: 0.78rem;
+      color: #a8a29e;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #1c1917;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .card-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .card-title a:hover { text-decoration: underline; }
+
+    .card-summary {
+      font-size: 0.88rem;
+      color: #57534e;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .card-summary.pending {
+      color: #a8a29e;
+      font-style: italic;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      background: #f5f5f4;
+      border: 1px solid #e7e5e4;
+      color: #57534e;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 0;
+      color: #a8a29e;
+    }
+
+    .empty-state p { margin-bottom: 8px; font-size: 0.95rem; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Cairn</h1>
+    <span>My Library</span>
+  </header>
+
+  <div class="auth-bar">
+    <input
+      type="text"
+      id="token-input"
+      placeholder="Paste your JWT token here..."
+    />
+    <button id="load-btn" onclick="loadArticles()">Load Articles</button>
+    <span id="status-msg"></span>
+  </div>
+
+  <main>
+    <div id="articles-count"></div>
+    <div id="articles-list"></div>
+  </main>
+
+  <script>
+    const API_BASE = 'http://localhost:8000';
+
+    async function loadArticles() {
+      const token = document.getElementById('token-input').value.trim();
+      const btn = document.getElementById('load-btn');
+      const statusMsg = document.getElementById('status-msg');
+      const countEl = document.getElementById('articles-count');
+      const listEl = document.getElementById('articles-list');
+
+      if (!token) {
+        statusMsg.textContent = '⚠️  Please paste your JWT token first.';
+        return;
+      }
+
+      // 发请求前 UI 进入 loading 状态
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+      statusMsg.textContent = '';
+      listEl.innerHTML = '';
+      countEl.textContent = '';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/articles`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (res.status === 401) {
+          throw new Error('Token expired or invalid. Get a fresh token from Swagger.');
+        }
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        const articles = await res.json();
+        renderArticles(articles);
+        countEl.textContent = `${articles.length} article${articles.length !== 1 ? 's' : ''} saved`;
+        statusMsg.textContent = '✅ Loaded';
+
+      } catch (err) {
+        statusMsg.textContent = `❌ ${err.message}`;
+        listEl.innerHTML = '';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load Articles';
+      }
+    }
+
+    function renderArticles(articles) {
+      const listEl = document.getElementById('articles-list');
+
+      if (articles.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <p>No articles yet.</p>
+            <p>Use the Chrome extension to save your first article.</p>
+          </div>`;
+        return;
+      }
+
+      listEl.innerHTML = articles.map(a => buildCard(a)).join('');
+    }
+
+    function buildCard(a) {
+      // 日期格式化
+      const date = new Date(a.created_at);
+      const dateStr = date.toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+
+      // AI 摘要:有就显示,没有显示 pending 状态
+      const summaryHtml = a.ai_summary
+        ? `<p class="card-summary">${escapeHtml(a.ai_summary)}</p>`
+        : `<p class="card-summary pending">⏳ AI analysis in progress — refresh in a few seconds.</p>`;
+
+      // 标签
+      const tagsHtml = a.tags && a.tags.length > 0
+        ? `<div class="tags">${a.tags.map(t => `<span class="tag">${escapeHtml(t.name)}</span>`).join('')}</div>`
+        : '';
+
+      // 来源:site_name 或域名
+      const source = a.site_name || extractDomain(a.url);
+
+      return `
+        <div class="article-card">
+          <div class="card-meta">
+            <span>${escapeHtml(source)}</span>
+            <span>·</span>
+            <span>${dateStr}</span>
+          </div>
+          <div class="card-title">
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+          </div>
+          ${summaryHtml}
+          ${tagsHtml}
+        </div>`;
+    }
+
+    // 工具函数:防 XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // 从 URL 提取域名,作为 fallback 来源
+    function extractDomain(url) {
+      try {
+        return new URL(url).hostname.replace('www.', '');
+      } catch {
+        return url;
+      }
+    }
+  </script>
+</body>
+</html>

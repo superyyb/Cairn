@@ -124,10 +124,10 @@ async function handleSave(tab) {
         
         // 3. 显示结果
         if (result.is_new) {
-            statusEl.textContent = `✅ Saved! Article #${result.article.id}`;
+            statusEl.textContent = `✅ Saved! AI analysis running in background...`;
             statusEl.className = 'status success';
         } else {
-            statusEl.textContent = `ℹ️ Already saved (Article #${result.article.id})`;
+            statusEl.textContent = `ℹ️ Already in your library`;
             statusEl.className = 'status success';
         }
         
