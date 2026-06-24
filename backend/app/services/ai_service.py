@@ -22,8 +22,37 @@ class ArticleAnalysis(BaseModel):
         description="A concise 1-2 sentence summary of the article's core idea, in the same language as the article."
     )
     tags: list[str] = Field(
-        description="3 to 5 lowercase technical tags (e.g. 'kubernetes', 'distributed systems', 'rust'). No spaces in single-word tags."
+        description="1 to 2 lowercase tags that best categorize this article (e.g. 'kubernetes', 'rust'). No spaces in single-word tags."
     )
+
+
+# ===== Embedding 函数 =====
+
+def embed_text(text: str) -> list[float] | None:
+    """把文本转成向量，失败返回 None。"""
+    try:
+        response = client.embeddings.create(
+            model=settings.embedding_model,
+            input=text[:8000],
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        logger.error(f"Embedding API error: {e}")
+        return None
+
+
+def embed_article(article) -> list[float] | None:
+    """
+    给文章生成向量。
+    优先用 标题 + AI摘要，没有摘要时降级用 标题 + excerpt。
+    """
+    if article.ai_summary:
+        text = f"{article.title}. {article.ai_summary}"
+    elif article.excerpt:
+        text = f"{article.title}. {article.excerpt}"
+    else:
+        text = article.title
+    return embed_text(text)
 
 
 # ===== 主要 service 函数 =====
@@ -47,18 +76,15 @@ def analyze_article(
     truncated_content = content[:8000]  # 约 2000-3000 token
 
     # 3. 构造 prompt
-    existing_tags_line = ""
-    if existing_tags:
-        existing_tags_line = f"\nExisting tags in the library: {', '.join(existing_tags)}\nReuse an existing tag when it fits. Only create a new tag if the concept is genuinely not covered.\n"
-
-    system_prompt = f"""You are a technical content analyst.
-Given a technical article, you produce:
+    system_prompt = """You are a content tagging assistant for a personal knowledge library.
+Given an article, you produce:
 1. A concise summary (1-2 sentences) capturing the core idea
-2. 3-5 relevant lowercase tags for categorization
-{existing_tags_line}
-Tags should be technologies, concepts, or topics — not generic words.
-Examples of good tags: "kubernetes", "rust", "distributed-systems", "rag", "react"
-Examples of bad tags: "tutorial", "interesting", "important"
+2. 1-2 tags that best categorize this article
+
+Tag rules:
+- Tags must be technologies, concepts, or domain topics — never generic words like "tutorial", "guide", "interesting"
+- Use lowercase with hyphens for multi-word tags (e.g. "distributed-systems", not "distributed systems")
+- Good tag examples: "kubernetes", "rust", "rag", "react", "security", "database"
 
 Respond with the same language as the article (English in / English out, 中文 in / 中文 out).
 """
@@ -92,7 +118,7 @@ Analyze this article."""
             tag.strip().lower() 
             for tag in result.tags 
             if tag.strip()
-        ][:5]  # 最多 5 个,防止 LLM 不听话
+        ][:2]  # 最多 2 个,防止 LLM 不听话
         
         logger.info(f"AI analyzed: '{title[:50]}' → tags={result.tags}")
         return result
@@ -101,6 +127,117 @@ Analyze this article."""
         # 失败不抛异常,记日志返回 None,让用户先看到没 AI 的版本
         logger.error(f"OpenAI API error: {e}")
         return None
+
+# ===== RAG 回答生成 =====
+
+def generate_answer(question: str, sources: list[dict]) -> str | None:
+    """
+    RAG 的 Generation 步骤：把检索到的文章作为上下文，让 GPT 生成回答。
+
+    sources: 每个元素是 {"index": 1, "title": ..., "ai_summary": ..., "content": ...}
+    返回结构化 markdown：库里有什么 → 回答 → 覆盖空白提示。
+    """
+    if not sources:
+        return None
+
+    context_parts = []
+    for s in sources:
+        text = s.get("ai_summary") or s.get("content", "")[:500]
+        context_parts.append(f'[{s["index"]}] {s["title"]}\n{text}')
+    context = "\n\n".join(context_parts)
+
+    system_prompt = """You are a helpful assistant for a personal knowledge base called Cairn.
+The user has saved technical articles to their library. Answer their question using ONLY the provided articles.
+
+Structure your response using exactly these markdown sections:
+
+## Answer
+Answer the question based on the articles. Cite sources inline using [1], [2], etc.
+Only state what the articles actually say — never fabricate information.
+
+## ⚠️ Coverage gaps
+If the question touches areas NOT well covered by the retrieved articles, list what's missing specifically.
+End with: "Consider saving articles about: [list the missing topics]"
+If coverage is sufficient to fully answer the question, omit this section entirely.
+
+Rules:
+- IMPORTANT: Always respond in the same language as the user's question. English question → English answer. Chinese question → Chinese answer.
+- Never make up information not present in the articles
+- If the library has almost nothing relevant, say so clearly in the Answer section"""
+
+    user_prompt = f"""Here are the retrieved articles from the user's library:
+
+{context}
+
+Question: {question}
+
+Respond following the structure above:"""
+
+    try:
+        response = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"generate_answer error: {e}")
+        return None
+
+
+# ===== Tag 语义去重 =====
+
+SIMILARITY_THRESHOLD = 0.15  # cosine distance（越小越相似）; 0.15 ≈ similarity > 0.85
+
+def _resolve_tag(db, tag_name: str):
+    """
+    给定 LLM 生成的 tag 名称，返回最终应使用的 Tag 对象：
+    1. 完全匹配 → 直接复用
+    2. Embedding 语义相似（距离 < threshold）→ 复用最近的已有 tag
+    3. 都不满足 → 创建新 tag 并存 embedding
+    """
+    from app.models.tag import Tag
+    from sqlalchemy import text
+
+    # 1. 完全匹配
+    existing = db.query(Tag).filter(Tag.name == tag_name).first()
+    if existing:
+        from app.models.tag_merge import TagMerge
+        db.add(TagMerge(from_name=tag_name, to_id=existing.id, distance=0.0))
+        return existing
+
+    # 2. 语义相似匹配
+    tag_embedding = embed_text(tag_name)
+    if tag_embedding:
+        result = db.execute(
+            text("""
+                SELECT id, name, embedding <=> CAST(:emb AS vector) AS distance
+                FROM tags
+                WHERE embedding IS NOT NULL
+                ORDER BY distance
+                LIMIT 1
+            """),
+            {"emb": str(tag_embedding)},
+        ).first()
+
+        if result and result.distance < SIMILARITY_THRESHOLD:
+            logger.info(
+                f"Tag '{tag_name}' → reusing '{result.name}' (distance={result.distance:.3f})"
+            )
+            from app.models.tag_merge import TagMerge
+            db.add(TagMerge(from_name=tag_name, to_id=result.id, distance=result.distance))
+            return db.query(Tag).filter(Tag.id == result.id).first()
+
+    # 3. 创建新 tag
+    new_tag = Tag(name=tag_name, embedding=tag_embedding)
+    db.add(new_tag)
+    db.flush()
+    logger.info(f"Tag '{tag_name}' → created new tag")
+    return new_tag
+
 
 # 异步处理函数(Day 13)
 def process_article_in_background(article_id: int) -> None:
@@ -138,15 +275,17 @@ def process_article_in_background(article_id: int) -> None:
         # 写入摘要
         article.ai_summary = analysis.summary
         
-        # 处理标签
+        # 处理标签（带 embedding 语义去重）
         for tag_name in analysis.tags:
-            tag = db.query(Tag).filter(Tag.name == tag_name).first()
-            if not tag:
-                tag = Tag(name=tag_name)
-                db.add(tag)
-                db.flush()
-            article.tags.append(tag)
+            tag = _resolve_tag(db, tag_name)
+            if tag not in article.tags:
+                article.tags.append(tag)
         
+        # 生成向量（摘要已写入，向量质量更高）
+        embedding = embed_article(article)
+        if embedding:
+            article.embedding = embedding
+
         db.commit()
         logger.info(f"✅ Background AI processing done for article {article_id}")
         

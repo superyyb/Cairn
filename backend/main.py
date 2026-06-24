@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import app.models  # noqa: F401 — registers all ORM models before mapper resolves relationships
-from app.api import users, auth, articles
+from app.api import users, auth, articles, chat
 from fastapi.middleware.cors import CORSMiddleware
 
 # 配置日志
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(articles.router)
+app.include_router(chat.router)
 
 
 # 全局异常处理:任何未捕获的异常都走这里
