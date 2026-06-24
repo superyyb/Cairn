@@ -59,6 +59,7 @@ export interface Article {
   lang: string | null
   length: number | null
   ai_summary: string | null
+  is_starred: boolean
   tags: Tag[]
   created_at: string
   updated_at: string
@@ -81,6 +82,12 @@ export async function fetchArticle(id: number): Promise<Article> {
 export async function deleteArticle(id: number): Promise<void> {
   const res = await apiFetch(`/api/articles/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to delete article')
+}
+
+export async function toggleStar(id: number): Promise<Article> {
+  const res = await apiFetch(`/api/articles/${id}/star`, { method: 'PATCH' })
+  if (!res.ok) throw new Error('Failed to toggle star')
+  return res.json()
 }
 
 // ===== Chat / RAG 相关类型 =====

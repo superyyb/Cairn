@@ -155,6 +155,28 @@ def get_article(
     return article
 
 
+@router.patch(
+    "/{article_id}/star",
+    response_model=ArticleResponse,
+    summary="Toggle star on an article",
+)
+def toggle_star(
+    article_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = db.query(Article).filter(
+        Article.id == article_id,
+        Article.user_id == current_user.id,
+    ).first()
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    article.is_starred = not article.is_starred
+    db.commit()
+    db.refresh(article)
+    return article
+
+
 @router.delete(
     "/{article_id}",
     status_code=status.HTTP_204_NO_CONTENT,

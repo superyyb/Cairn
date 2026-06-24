@@ -24,6 +24,7 @@ export default function ArticlesPage() {
   const router = useRouter()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [showStarred, setShowStarred] = useState(false)
 
   useEffect(() => {
     if (!isLoggedIn()) router.replace('/login')
@@ -40,6 +41,10 @@ export default function ArticlesPage() {
 
   function handleDelete(id: number) {
     mutate(articles.filter((a: Article) => a.id !== id), false)
+  }
+
+  function handleStar(id: number, starred: boolean) {
+    mutate(articles.map((a: Article) => a.id === id ? { ...a, is_starred: starred } : a), false)
   }
 
   const allTags = useMemo(() => {
@@ -63,15 +68,21 @@ export default function ArticlesPage() {
         a.title.toLowerCase().includes(q) ||
         (a.ai_summary?.toLowerCase().includes(q) ?? false) ||
         a.tags.some(t => t.name.toLowerCase().includes(q))
-      return matchTag && matchSearch
+      const matchStarred = !showStarred || a.is_starred
+      return matchTag && matchSearch && matchStarred
     })
-  }, [articles, selectedTag, search])
+  }, [articles, selectedTag, search, showStarred])
 
   const initial = getUserInitial()
 
   return (
     <div className="flex min-h-screen bg-white">
-      <Sidebar articles={articles} activePage="library" />
+      <Sidebar
+        articles={articles}
+        activePage="library"
+        showStarred={showStarred}
+        onStarredToggle={() => setShowStarred(p => !p)}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* 顶部栏 */}
@@ -102,7 +113,7 @@ export default function ArticlesPage() {
 
             {/* 标题 */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-stone-900">Recently saved</h2>
+              <h2 className="text-lg font-semibold text-stone-900">{showStarred ? 'Starred' : 'Recently saved'}</h2>
               {!isLoading && !error && articles.length > 0 && (
                 <span className="text-sm text-stone-400">{articles.length} articles</span>
               )}
@@ -200,6 +211,7 @@ export default function ArticlesPage() {
                       onTagClick={handleTagClick}
                       selectedTag={selectedTag}
                       onDelete={handleDelete}
+                      onStar={handleStar}
                     />
                   ))
                 )}
