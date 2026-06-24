@@ -1,34 +1,26 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { isLoggedIn, removeToken } from '@/lib/auth'
 import { fetchArticles, type Article } from '@/lib/api'
 import ArticleCard from '@/components/ArticleCard'
+import { useState } from 'react'
 
 export default function ArticlesPage() {
   const router = useRouter()
-  const [articles, setArticles] = useState<Article[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace('/login'); return }
-    loadArticles()
+    if (!isLoggedIn()) router.replace('/login')
   }, [router])
 
-  async function loadArticles() {
-    try {
-      const data = await fetchArticles()
-      setArticles(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: articles = [], error, isLoading, mutate } = useSWR(
+    isLoggedIn() ? '/api/articles' : null,
+    fetchArticles,
+  )
 
   function handleLogout() {
     removeToken()
@@ -40,7 +32,7 @@ export default function ArticlesPage() {
   }
 
   function handleDelete(id: number) {
-    setArticles(prev => prev.filter(a => a.id !== id))
+    mutate(articles.filter((a: Article) => a.id !== id), false)
   }
 
   const allTags = useMemo(() => {
@@ -57,7 +49,7 @@ export default function ArticlesPage() {
   }, [articles])
 
   const filtered = useMemo(() => {
-    return articles.filter(a => {
+    return articles.filter((a: Article) => {
       const matchTag = !selectedTag || a.tags.some(t => t.name === selectedTag)
       const q = search.toLowerCase()
       const matchSearch = !q ||
@@ -110,14 +102,14 @@ export default function ArticlesPage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-stone-900">My Library</h2>
-            {!loading && !error && (
+            {!isLoading && !error && (
               <p className="text-indigo-600 text-sm font-medium">{articles.length} articles</p>
             )}
           </div>
         </div>
 
         {/* 搜索框 */}
-        {!loading && !error && articles.length > 0 && (
+        {!isLoading && !error && articles.length > 0 && (
           <>
             <div className="relative mb-4">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +147,7 @@ export default function ArticlesPage() {
         )}
 
         {/* 加载中 */}
-        {loading && (
+        {isLoading && (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 animate-pulse">
@@ -170,11 +162,13 @@ export default function ArticlesPage() {
 
         {/* 报错 */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
+            {error instanceof Error ? error.message : 'Something went wrong'}
+          </div>
         )}
 
         {/* 空状态 onboarding */}
-        {!loading && !error && articles.length === 0 && (
+        {!isLoading && !error && articles.length === 0 && (
           <div className="max-w-lg mx-auto py-12">
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
@@ -213,12 +207,12 @@ export default function ArticlesPage() {
         )}
 
         {/* 文章列表 */}
-        {!loading && !error && articles.length > 0 && (
+        {!isLoading && !error && articles.length > 0 && (
           <div className="space-y-3">
             {filtered.length === 0 ? (
               <p className="text-center text-stone-400 text-sm py-12">No articles match your search.</p>
             ) : (
-              filtered.map(article => (
+              filtered.map((article: Article) => (
                 <ArticleCard
                   key={article.id}
                   article={article}
