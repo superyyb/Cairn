@@ -72,6 +72,12 @@ export async function fetchArticles(): Promise<Article[]> {
   return res.json()
 }
 
+export async function fetchArticle(id: number): Promise<Article> {
+  const res = await apiFetch(`/api/articles/${id}`)
+  if (!res.ok) throw new Error('Failed to fetch article')
+  return res.json()
+}
+
 export async function deleteArticle(id: number): Promise<void> {
   const res = await apiFetch(`/api/articles/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to delete article')

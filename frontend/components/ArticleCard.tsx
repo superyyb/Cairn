@@ -37,6 +37,7 @@ function siteColor(name: string) {
 
 export default function ArticleCard({ article, onTagClick, selectedTag, onDelete }: Props) {
   const [deleting, setDeleting] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault()
@@ -77,24 +78,39 @@ export default function ArticleCard({ article, onTagClick, selectedTag, onDelete
           </div>
 
           {/* 标题 */}
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-base font-semibold text-stone-900 hover:text-indigo-600 transition-colors mb-2 leading-snug"
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="block text-left text-base font-semibold text-stone-900 hover:text-indigo-600 transition-colors mb-2 leading-snug w-full"
           >
             {article.title}
-          </a>
+          </button>
 
-          {/* AI 摘要 */}
+          {/* AI 摘要（收起时截断，展开时完整） */}
           {article.ai_summary ? (
-            <p className="text-sm text-stone-500 leading-relaxed mb-3 line-clamp-2">
+            <p className={`text-sm text-stone-500 leading-relaxed mb-3 ${expanded ? '' : 'line-clamp-2'}`}>
               {article.ai_summary}
             </p>
           ) : (
             <p className="text-sm text-stone-400 italic mb-3">
               AI analysis in progress...
             </p>
+          )}
+
+          {/* 展开内容 */}
+          {expanded && (
+            <div className="mt-1 mb-3">
+              <a
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Open original
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
           )}
 
           {/* 标签 */}
