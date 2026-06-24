@@ -1,0 +1,142 @@
+'use client'
+
+import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { removeToken } from '@/lib/auth'
+import { type Article } from '@/lib/api'
+
+interface Props {
+  articles: Article[]
+  activePage: 'library' | 'chat'
+}
+
+export default function Sidebar({ articles, activePage }: Props) {
+  const router = useRouter()
+
+  const thisWeek = useMemo(() => {
+    const cutoff = Date.now() - 7 * 86400000
+    return articles.filter(a => new Date(a.created_at).getTime() > cutoff).length
+  }, [articles])
+
+  const sparkData = useMemo(() => {
+    const days = 14
+    const counts = Array(days).fill(0)
+    const now = Date.now()
+    for (const a of articles) {
+      const daysAgo = Math.floor((now - new Date(a.created_at).getTime()) / 86400000)
+      if (daysAgo >= 0 && daysAgo < days) counts[days - 1 - daysAgo]++
+    }
+    return counts
+  }, [articles])
+
+  const max = Math.max(...sparkData, 1)
+  const W = 160, H = 36
+  const points = sparkData.map((v, i) => {
+    const x = (i / (sparkData.length - 1)) * W
+    const y = H - (v / max) * (H - 4)
+    return `${x},${y}`
+  }).join(' ')
+
+  function handleLogout() {
+    removeToken()
+    router.push('/login')
+  }
+
+  const navItems = [
+    {
+      href: '/',
+      active: false,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
+      label: 'Home',
+    },
+    {
+      href: '/articles',
+      active: activePage === 'library',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
+      label: 'Library',
+    },
+    {
+      href: '/chat',
+      active: activePage === 'chat',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      ),
+      label: 'Ask AI',
+    },
+  ]
+
+  return (
+    <aside className="w-52 shrink-0 sticky top-0 h-screen flex flex-col border-r border-stone-200/60 bg-white px-3 py-4">
+      {/* Logo */}
+      <a href="/" className="flex items-center gap-3 px-3 py-3 mb-4">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <ellipse cx="12" cy="20" rx="7" ry="2.5" fill="#4f46e5" opacity="0.9"/>
+          <ellipse cx="12" cy="14.5" rx="5" ry="2" fill="#4f46e5" opacity="0.8"/>
+          <ellipse cx="12" cy="9.5" rx="3.5" ry="1.8" fill="#4f46e5" opacity="0.7"/>
+          <ellipse cx="12" cy="5.5" rx="2" ry="1.5" fill="#4f46e5" opacity="0.6"/>
+        </svg>
+        <span className="font-bold text-stone-900 text-lg">Cairn</span>
+      </a>
+
+      {/* Nav */}
+      <nav className="space-y-0.5 mb-auto">
+        {navItems.map(item => (
+          <a
+            key={item.href}
+            href={item.href}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+              item.active
+                ? 'bg-indigo-50 text-indigo-600 font-medium'
+                : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
+            }`}
+          >
+            {item.icon}
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      {/* Sign out */}
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-stone-400 hover:text-stone-700 hover:bg-stone-50 transition-colors mb-3"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Sign out
+      </button>
+
+      {/* Stats card */}
+      {articles.length > 0 && (
+        <div className="border border-stone-200/80 rounded-xl p-3">
+          <p className="text-xs text-stone-400 mb-1">Total saved</p>
+          <p className="text-2xl font-semibold text-stone-900 leading-none mb-1">{articles.length}</p>
+          {thisWeek > 0 && (
+            <p className="text-xs text-emerald-600 font-medium mb-2">+{thisWeek} this week</p>
+          )}
+          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+            <polyline
+              points={points}
+              fill="none"
+              stroke="#818cf8"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      )}
+    </aside>
+  )
+}
