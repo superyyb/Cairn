@@ -1,7 +1,7 @@
 """文章模型"""
 from datetime import datetime
 
-from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Column
+from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Column, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -43,6 +43,9 @@ class Article(Base):
     lang: Mapped[str | None] = mapped_column(String(10), nullable=True)
     length: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 字符数
     
+    # 用户操作
+    is_starred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # AI 生成
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(
