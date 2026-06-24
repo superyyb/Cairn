@@ -95,7 +95,7 @@ def save_article(
 )
 def list_my_articles(
     skip: int = 0,
-    limit: int = 20,
+    limit: int = 200,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -151,3 +151,33 @@ def get_article(
         )
 
     return article
+
+
+@router.delete(
+    "/{article_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an article",
+)
+def delete_article(
+    article_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(
+            Article.id == article_id,
+            Article.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Article not found",
+        )
+
+    db.delete(article)
+    db.commit()
+    logger.info(f"Article {article_id} deleted by user {current_user.id}")

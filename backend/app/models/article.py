@@ -5,6 +5,7 @@ from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Colum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from pgvector.sqlalchemy import Vector
 
 
 # 中间表:文章 ↔ 标签 多对多关联
@@ -42,8 +43,11 @@ class Article(Base):
     lang: Mapped[str | None] = mapped_column(String(10), nullable=True)
     length: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 字符数
     
-    # AI 生成(Day 12 填充)
+    # AI 生成
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(
+    Vector(1536), nullable=True
+)
     
     # 时间戳
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
