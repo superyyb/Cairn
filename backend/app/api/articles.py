@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.rate_limit import article_rate_limit
 from app.core.security import get_current_user
 from app.core.utils import hash_url
 from app.models.article import Article
@@ -26,8 +27,8 @@ router = APIRouter(prefix="/api/articles", tags=["articles"])
 )
 def save_article(
     payload: ArticleCreate,
-    background_tasks: BackgroundTasks,              # ⭐ FastAPI 注入后台任务管理器
-    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(article_rate_limit),
     db: Session = Depends(get_db),
 ):
     """

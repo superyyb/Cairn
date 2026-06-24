@@ -22,5 +22,8 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str = ""
 
+    # Redis
+    redis_url: str = "redis://localhost:6379"
+
 
 settings = Settings()
