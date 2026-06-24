@@ -19,7 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderLoginView() {
     document.getElementById('login-view').classList.remove('hidden');
     document.getElementById('save-view').classList.add('hidden');
-    
+
+    document.getElementById('open-web-btn').addEventListener('click', () => {
+        chrome.tabs.create({ url: 'http://localhost:3000/login' });
+        window.close();
+    });
     document.getElementById('login-btn').addEventListener('click', handleLogin);
     document.getElementById('email').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('password').focus();
@@ -196,11 +200,43 @@ async function extractArticleFromTab(tab) {
 }
 
 
-// ===== Token 存储(用 chrome.storage.local)=====
+// ===== Token 存储 =====
+
+const WEB_APP_ORIGINS = [
+    'http://localhost:3000',
+];
 
 async function getToken() {
+    // 1. 先查扩展自己的 storage
     const data = await chrome.storage.local.get('cairn_token');
-    return data.cairn_token || null;
+    if (data.cairn_token) return data.cairn_token;
+
+    // 2. 尝试从已打开的网页端读取 localStorage token
+    const token = await readTokenFromWebApp();
+    if (token) {
+        await chrome.storage.local.set({ cairn_token: token });
+        return token;
+    }
+
+    return null;
+}
+
+async function readTokenFromWebApp() {
+    for (const origin of WEB_APP_ORIGINS) {
+        const tabs = await chrome.tabs.query({ url: `${origin}/*` });
+        if (tabs.length === 0) continue;
+        try {
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                func: () => localStorage.getItem('cairn_token'),
+            });
+            const token = results?.[0]?.result;
+            if (token) return token;
+        } catch {
+            // tab 不可注入，跳过
+        }
+    }
+    return null;
 }
 
 async function saveToken(token) {

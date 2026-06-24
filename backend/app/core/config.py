@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     # OpenAI(新增)
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+
+    # Google OAuth
+    google_client_id: str = ""
 
 
 settings = Settings()
