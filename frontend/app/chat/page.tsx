@@ -1,0 +1,392 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { isLoggedIn, removeToken } from '@/lib/auth'
+import { askQuestion, getHistory, type AskResponse, type ChatSession } from '@/lib/api'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
+function parseAnswer(raw: string) {
+  const gapMarkers = ['## ⚠️ Coverage gaps', '## Coverage gaps', '⚠️ Coverage gaps']
+  for (const marker of gapMarkers) {
+    const idx = raw.indexOf(marker)
+    if (idx !== -1) {
+      return {
+        main: raw.slice(0, idx).replace(/^##\s*Answer\s*/i, '').trim(),
+        gaps: raw.slice(idx + marker.length).trim(),
+      }
+    }
+  }
+  return {
+    main: raw.replace(/^##\s*Answer\s*/i, '').trim(),
+    gaps: null,
+  }
+}
+
+const PDT = 'America/Los_Angeles'
+
+function parseUTC(dateStr: string) {
+  // Backend returns UTC without Z suffix — append it to force correct parsing
+  return new Date(dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
+}
+
+function formatItemTime(dateStr: string) {
+  const date = parseUTC(dateStr)
+  const tz = { timeZone: PDT }
+  const todayStr = new Date().toLocaleDateString('en-US', tz)
+  const itemDateStr = date.toLocaleDateString('en-US', tz)
+  if (itemDateStr === todayStr) {
+    return date.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit' })
+  }
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (itemDateStr === yesterday.toLocaleDateString('en-US', tz)) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { ...tz, month: 'short', day: 'numeric' })
+}
+
+function getExcerpt(answer: string) {
+  const clean = answer
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+  return clean.length > 55 ? clean.slice(0, 55) + '…' : clean
+}
+
+function groupHistory(sessions: ChatSession[]) {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayItems = sessions.filter(s => parseUTC(s.created_at) >= todayStart)
+  const earlierItems = sessions.filter(s => parseUTC(s.created_at) < todayStart)
+  const groups: { label: string; items: ChatSession[] }[] = []
+  if (todayItems.length > 0) groups.push({ label: 'Today', items: todayItems })
+  if (earlierItems.length > 0) groups.push({ label: 'Earlier', items: earlierItems })
+  return groups
+}
+
+export default function ChatPage() {
+  const router = useRouter()
+  const [question, setQuestion] = useState('')
+  const [result, setResult] = useState<AskResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [history, setHistory] = useState<ChatSession[]>([])
+  const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await getHistory()
+      setHistory(data)
+    } catch {
+      // silently fail
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isLoggedIn()) { router.replace('/login'); return }
+    loadHistory()
+  }, [router, loadHistory])
+
+  function handleLogout() {
+    removeToken()
+    router.push('/login')
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!question.trim()) return
+    setLoading(true)
+    setError('')
+    setResult(null)
+    setActiveHistoryId(null)
+    try {
+      const data = await askQuestion(question.trim())
+      setResult(data)
+      await loadHistory()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function loadFromHistory(session: ChatSession) {
+    setQuestion(session.question)
+    setResult({ question: session.question, answer: session.answer, sources: session.sources })
+    setActiveHistoryId(session.id)
+    setError('')
+  }
+
+  const groups = groupHistory(history)
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-white flex flex-col">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur border-b border-stone-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-indigo-600">
+            <ellipse cx="12" cy="20" rx="7" ry="2.5" fill="currentColor" opacity="0.9"/>
+            <ellipse cx="12" cy="14.5" rx="5" ry="2" fill="currentColor" opacity="0.8"/>
+            <ellipse cx="12" cy="9.5" rx="3.5" ry="1.8" fill="currentColor" opacity="0.7"/>
+            <ellipse cx="12" cy="5.5" rx="2" ry="1.5" fill="currentColor" opacity="0.6"/>
+          </svg>
+          <span className="font-semibold text-stone-900">Cairn</span>
+        </div>
+        <nav className="flex items-center gap-1">
+          <a
+            href="/articles"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Library
+          </a>
+          <a
+            href="/chat"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+            Ask AI
+          </a>
+          <button
+            onClick={handleLogout}
+            className="ml-2 px-3 py-1.5 text-sm text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors"
+          >
+            Sign out
+          </button>
+        </nav>
+      </header>
+
+      {/* Body */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Sidebar — absolutely positioned, overlays main content */}
+        <div className="absolute left-5 top-0 bottom-0 flex items-center z-20 pointer-events-none">
+          {!sidebarOpen ? (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="pointer-events-auto w-8 h-8 flex items-center justify-center bg-white border border-stone-200 rounded-xl shadow-sm text-stone-400 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+              title="Show history"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <aside className="pointer-events-auto w-72 h-[75vh] bg-white border border-stone-200 rounded-2xl flex flex-col shadow-sm overflow-hidden">
+              {/* Sidebar header */}
+              <div className="px-5 pt-5 pb-3 flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-stone-900">History</h2>
+                  <p className="text-xs text-stone-400 mt-0.5">Recent questions</p>
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {/* clock icon (decorative) */}
+                  <svg className="w-4 h-4 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {/* collapse */}
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
+                    title="Collapse"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* History list */}
+              <div className="flex-1 overflow-y-auto px-3 pb-3">
+                {history.length === 0 ? (
+                  <p className="text-xs text-stone-400 px-2 mt-4">No history yet. Ask your first question!</p>
+                ) : (
+                  groups.map(group => {
+                    return (
+                      <div key={group.label} className="mb-2">
+                        <p className="text-xs font-semibold text-stone-400 px-2 py-2">{group.label}</p>
+                        <div className="space-y-1">
+                          {group.items.map(session => {
+                            const active = activeHistoryId === session.id
+                            return (
+                              <button
+                                key={session.id}
+                                onClick={() => loadFromHistory(session)}
+                                className={`w-full text-left rounded-xl transition-colors relative overflow-hidden ${
+                                  active ? 'bg-indigo-50' : 'hover:bg-stone-50'
+                                }`}
+                              >
+                                {active && (
+                                  <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-indigo-500" />
+                                )}
+                                <div className="px-3 py-2.5">
+                                  <p className={`text-sm font-semibold leading-snug line-clamp-2 ${
+                                    active ? 'text-indigo-900' : 'text-stone-800'
+                                  }`}>
+                                    {session.question}
+                                  </p>
+                                  {session.answer && session.sources.length > 0 && (
+                                    <p className="text-xs text-stone-400 mt-0.5 line-clamp-1">
+                                      {getExcerpt(session.answer)}
+                                    </p>
+                                  )}
+                                  <p className={`text-xs mt-1 ${active ? 'text-indigo-400' : 'text-stone-400'}`}>
+                                    {formatItemTime(session.created_at)}
+                                  </p>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </aside>
+          )}
+        </div>
+
+        {/* Main content — always full width */}
+        <main className="h-full overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 py-12">
+            {!result && !loading && (
+              <div className="text-center mb-8">
+                <div className="flex justify-center mb-3">
+                  <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl font-bold text-stone-900">Ask Your Library</h2>
+                <p className="text-stone-500 text-sm mt-2">Get answers from what you&apos;ve read.</p>
+              </div>
+            )}
+
+            {/* Input */}
+            <form onSubmit={handleSubmit} className="flex gap-2 mb-8">
+              <div className="relative flex-1">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={question}
+                  onChange={e => setQuestion(e.target.value)}
+                  placeholder="e.g. How does Kubernetes handle rolling updates?"
+                  disabled={loading}
+                  className="w-full pl-9 pr-4 py-3 bg-white border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm disabled:opacity-50"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !question.trim()}
+                className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                {loading ? 'Thinking...' : 'Ask'}
+              </button>
+            </form>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm mb-6">
+                {error}
+              </div>
+            )}
+
+            {loading && (
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm animate-pulse space-y-3">
+                <div className="h-3 bg-stone-100 rounded w-1/3" />
+                <div className="h-3 bg-stone-100 rounded w-full" />
+                <div className="h-3 bg-stone-100 rounded w-5/6" />
+                <div className="h-3 bg-stone-100 rounded w-4/6" />
+              </div>
+            )}
+
+            {result && !loading && result.sources.length > 0 && (
+              <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-stone-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <h3 className="text-sm font-semibold text-stone-700">What&apos;s in your library</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {result.sources.map(source => (
+                      <a
+                        key={source.id}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 p-3 rounded-xl border border-indigo-100/60 bg-indigo-50/20 hover:border-indigo-200 hover:bg-indigo-50/40 transition-colors group"
+                      >
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                          {source.index}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-stone-900 group-hover:text-indigo-700 truncate">
+                            {source.title}
+                          </p>
+                          <p className="text-xs text-stone-400 mt-0.5">
+                            Saved {new Date(source.saved_at).toLocaleDateString()} · {Math.round(source.similarity * 100)}% match
+                          </p>
+                        </div>
+                        <svg className="w-4 h-4 text-stone-300 group-hover:text-indigo-400 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {(() => {
+                  const { main, gaps } = parseAnswer(result.answer)
+                  return (
+                    <div className="p-6 space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <h3 className="text-sm font-semibold text-stone-700">Answer</h3>
+                      </div>
+                      <div className="prose prose-sm max-w-none text-stone-800">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{main}</ReactMarkdown>
+                      </div>
+                      {gaps && (
+                        <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                          <span className="text-lg shrink-0">⚠️</span>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-800 mb-1">Coverage gaps</p>
+                            <p className="text-sm text-amber-700">{gaps}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {result && !loading && result.sources.length === 0 && (
+              <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <span className="text-lg shrink-0">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 mb-1">No relevant articles found</p>
+                  <p className="text-sm text-amber-700">{result.answer}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}

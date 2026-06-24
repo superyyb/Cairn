@@ -71,3 +71,53 @@ export async function fetchArticles(): Promise<Article[]> {
   if (!res.ok) throw new Error('Failed to fetch articles')
   return res.json()
 }
+
+export async function deleteArticle(id: number): Promise<void> {
+  const res = await apiFetch(`/api/articles/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete article')
+}
+
+// ===== Chat / RAG 相关类型 =====
+
+export interface ArticleSource {
+  index: number
+  id: number
+  title: string
+  url: string
+  saved_at: string
+  similarity: number
+}
+
+export interface AskResponse {
+  question: string
+  answer: string
+  sources: ArticleSource[]
+}
+
+export interface ChatSession {
+  id: number
+  question: string
+  answer: string
+  sources: ArticleSource[]
+  created_at: string
+}
+
+// ===== Chat / RAG 相关 API =====
+
+export async function askQuestion(question: string, top_k = 5): Promise<AskResponse> {
+  const res = await apiFetch('/api/chat/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question, top_k }),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'Failed to get answer')
+  }
+  return res.json()
+}
+
+export async function getHistory(limit = 20): Promise<ChatSession[]> {
+  const res = await apiFetch(`/api/chat/history?limit=${limit}`)
+  if (!res.ok) throw new Error('Failed to fetch history')
+  return res.json()
+}
