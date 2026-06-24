@@ -89,7 +89,8 @@ def semantic_search(
 )
 def ask(
     payload: AskRequest,
-    current_user: User = Depends(chat_rate_limit),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(chat_rate_limit),
     db: Session = Depends(get_db),
 ):
     # 1. 向量化问题

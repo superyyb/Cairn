@@ -28,7 +28,8 @@ router = APIRouter(prefix="/api/articles", tags=["articles"])
 def save_article(
     payload: ArticleCreate,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(article_rate_limit),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(article_rate_limit),
     db: Session = Depends(get_db),
 ):
     """

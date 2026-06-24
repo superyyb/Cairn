@@ -1,10 +1,13 @@
 """Redis-backed rate limiting for LLM endpoints."""
+import logging
 import redis
 from fastapi import Depends, HTTPException, status
 
 from app.core.config import settings
 from app.core.security import get_current_user
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 CHAT_LIMIT = 20      # questions per day
 ARTICLE_LIMIT = 50   # saves per day
@@ -32,15 +35,14 @@ def _check_limit(user_id: int, key: str, limit: int, label: str) -> None:
                 detail=f"Daily limit reached: {limit} {label} per day.",
                 headers={"Retry-After": str(WINDOW_SEC)},
             )
-    except redis.RedisError:
-        pass
+    except redis.RedisError as e:
+        # Fail-open: allow request through, but log so we know Redis is down
+        logger.warning(f"Redis unavailable, rate limiting skipped for user {user_id}: {e}")
 
 
-def chat_rate_limit(current_user: User = Depends(get_current_user)) -> User:
+def chat_rate_limit(current_user: User = Depends(get_current_user)) -> None:
     _check_limit(current_user.id, f"rate:chat:{current_user.id}", CHAT_LIMIT, "questions")
-    return current_user
 
 
-def article_rate_limit(current_user: User = Depends(get_current_user)) -> User:
+def article_rate_limit(current_user: User = Depends(get_current_user)) -> None:
     _check_limit(current_user.id, f"rate:article:{current_user.id}", ARTICLE_LIMIT, "articles")
-    return current_user
