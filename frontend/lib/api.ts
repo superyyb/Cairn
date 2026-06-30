@@ -42,6 +42,21 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   return res
 }
 
+// ===== 用户相关类型 =====
+
+export interface User {
+  id: number
+  email: string
+  username: string
+  created_at: string
+}
+
+export async function fetchUser(): Promise<User> {
+  const res = await apiFetch('/api/users/me')
+  if (!res.ok) throw new Error('Failed to fetch user')
+  return res.json()
+}
+
 // ===== 文章相关类型 =====
 
 export interface Tag {
