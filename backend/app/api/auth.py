@@ -1,8 +1,9 @@
 """鉴权相关 API"""
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from app.core.rate_limit import login_rate_limit
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from pydantic import BaseModel
@@ -19,7 +20,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
+    _: None = Depends(login_rate_limit),
     db: Session = Depends(get_db),
 ):
     """
