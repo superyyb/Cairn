@@ -74,7 +74,7 @@ export default function ArticlesPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-gradient-to-b from-indigo-50/40 via-white to-white">
       <Sidebar
         articles={articles}
         activePage="library"
@@ -84,7 +84,7 @@ export default function ArticlesPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* 顶部栏 */}
-        <div className="sticky top-0 z-10 bg-white border-b border-stone-100 px-8 py-4 flex items-center gap-4">
+        <div className="sticky top-0 z-10 bg-indigo-50/40 backdrop-blur-sm border-b border-indigo-100/60 px-8 py-4 flex items-center gap-4">
           <div className="flex-1 relative max-w-xl">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -124,7 +124,7 @@ export default function ArticlesPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-indigo-700">{showStarred ? 'Starred' : 'Recently saved'}</h2>
               {!isLoading && !error && articles.length > 0 && (
-                <span className="text-sm text-stone-400">{articles.length} articles</span>
+                <span className="text-base text-stone-400">{articles.length} articles</span>
               )}
             </div>
 
@@ -135,7 +135,7 @@ export default function ArticlesPage() {
                   <button
                     key={tag}
                     onClick={() => handleTagClick(tag)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
                       selectedTag === tag
                         ? 'bg-indigo-600 text-white border-indigo-600'
                         : 'bg-white text-stone-600 border-stone-200 hover:border-indigo-300 hover:text-indigo-600'

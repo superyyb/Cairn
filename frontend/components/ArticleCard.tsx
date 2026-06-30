@@ -85,7 +85,7 @@ export default function ArticleCard({ article, onTagClick, selectedTag, onDelete
 
         <div className="flex-1 min-w-0">
           {/* 来源 + 日期 */}
-          <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-1">
+          <div className="flex items-center gap-1.5 text-sm text-stone-400 mb-1">
             <span className="font-medium text-stone-500">{source}</span>
             <span>·</span>
             <span>{date}</span>
@@ -94,18 +94,18 @@ export default function ArticleCard({ article, onTagClick, selectedTag, onDelete
           {/* 标题 */}
           <button
             onClick={() => setExpanded(e => !e)}
-            className="block text-left text-base font-semibold text-stone-900 hover:text-indigo-600 transition-colors mb-2 leading-snug w-full"
+            className="block text-left text-lg font-semibold text-stone-900 hover:text-indigo-600 transition-colors mb-2 leading-snug w-full"
           >
             {article.title}
           </button>
 
           {/* AI 摘要（收起时截断，展开时完整） */}
           {article.ai_summary ? (
-            <p className={`text-sm text-stone-500 leading-relaxed mb-3 ${expanded ? '' : 'line-clamp-2'}`}>
+            <p className={`text-base text-stone-500 leading-relaxed mb-3 ${expanded ? '' : 'line-clamp-2'}`}>
               {article.ai_summary}
             </p>
           ) : (
-            <p className="text-sm text-stone-400 italic mb-3">
+            <p className="text-base text-stone-400 italic mb-3">
               AI analysis in progress...
             </p>
           )}
@@ -134,7 +134,7 @@ export default function ArticleCard({ article, onTagClick, selectedTag, onDelete
                 <button
                   key={tag.id}
                   onClick={() => onTagClick?.(tag.name)}
-                  className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
+                  className={`text-sm px-2.5 py-1 rounded-lg transition-colors ${
                 selectedTag === tag.name
                   ? 'bg-indigo-200 text-indigo-800 font-semibold'
                   : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
