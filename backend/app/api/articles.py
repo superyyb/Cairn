@@ -97,18 +97,12 @@ def save_article(
 )
 def list_my_articles(
     skip: int = 0,
-    limit: int = 200,
+    limit: int = 500,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    返回当前用户保存的所有文章,按保存时间倒序。
-
-    - skip: 跳过的记录数(用于分页)
-    - limit: 单页最大返回数量(默认 20,上限 100)
-    """
-    if limit > 100:
-        limit = 100
+    if limit > 500:
+        limit = 500
 
     articles = (
         db.query(Article)
