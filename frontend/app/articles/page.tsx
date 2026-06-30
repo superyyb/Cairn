@@ -3,22 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { isLoggedIn, getToken, removeToken } from '@/lib/auth'
-import { fetchArticles, type Article } from '@/lib/api'
+import { isLoggedIn, removeToken } from '@/lib/auth'
+import { fetchArticles, fetchUser, type Article } from '@/lib/api'
 import ArticleCard from '@/components/ArticleCard'
 import Sidebar from '@/components/Sidebar'
-
-function getUserInitial(): string {
-  const token = getToken()
-  if (!token) return 'A'
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    const email: string = payload.sub || payload.email || ''
-    return email.charAt(0).toUpperCase() || 'A'
-  } catch {
-    return 'A'
-  }
-}
 
 export default function ArticlesPage() {
   const router = useRouter()
@@ -34,6 +22,13 @@ export default function ArticlesPage() {
     isLoggedIn() ? '/api/articles' : null,
     fetchArticles,
   )
+
+  const { data: user } = useSWR(
+    isLoggedIn() ? '/api/users/me' : null,
+    fetchUser,
+  )
+
+  const initial = user?.email?.charAt(0).toUpperCase() ?? 'A'
 
   function handleTagClick(tag: string) {
     setSelectedTag(prev => prev === tag ? null : tag)
@@ -77,8 +72,6 @@ export default function ArticlesPage() {
     removeToken()
     router.push('/login')
   }
-
-  const initial = getUserInitial()
 
   return (
     <div className="flex min-h-screen bg-white">
