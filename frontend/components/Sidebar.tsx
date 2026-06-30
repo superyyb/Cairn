@@ -8,9 +8,10 @@ interface Props {
   activePage: 'library' | 'chat'
   showStarred?: boolean
   onStarredToggle?: () => void
+  children?: React.ReactNode
 }
 
-export default function Sidebar({ articles, activePage, showStarred, onStarredToggle }: Props) {
+export default function Sidebar({ articles, activePage, showStarred, onStarredToggle, children }: Props) {
   const thisWeek = useMemo(() => {
     const cutoff = Date.now() - 7 * 86400000
     return articles.filter(a => new Date(a.created_at).getTime() > cutoff).length
@@ -69,7 +70,7 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
   ]
 
   return (
-    <aside className="w-52 shrink-0 sticky top-0 h-screen flex flex-col border-r border-stone-200/60 bg-white px-3 py-4">
+    <aside className="w-60 shrink-0 sticky top-0 h-screen flex flex-col border-r border-stone-200/60 bg-white px-3 py-4">
       {/* Logo */}
       <a href="/" className="flex items-center gap-3 px-3 py-3 mb-4">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
@@ -82,12 +83,12 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
       </a>
 
       {/* Nav */}
-      <nav className="space-y-0.5 mb-auto">
+      <nav className="space-y-0.5">
         {navItems.map(item => (
           <a
             key={item.href}
             href={item.href}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-base transition-colors ${
               item.active
                 ? 'bg-indigo-50 text-indigo-600 font-medium'
                 : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
@@ -99,7 +100,7 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
         ))}
         <button
           onClick={onStarredToggle}
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-base transition-colors ${
             showStarred
               ? 'bg-amber-50 text-amber-600 font-medium'
               : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
@@ -112,8 +113,15 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
         </button>
       </nav>
 
-      {/* Stats card */}
-      {articles.length > 0 && (
+      {/* Middle: chat history slot or spacer */}
+      {children ? (
+        <div className="flex-1 overflow-y-auto mt-3 min-h-0">{children}</div>
+      ) : (
+        <div className="flex-1" />
+      )}
+
+      {/* Stats card — library only */}
+      {!children && articles.length > 0 && (
         <div className="border border-stone-200/80 rounded-xl p-3">
           <p className="text-xs text-stone-400 mb-1">Total saved</p>
           <p className="text-2xl font-semibold text-stone-900 leading-none mb-1">{articles.length}</p>
