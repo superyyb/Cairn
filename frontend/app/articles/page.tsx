@@ -91,9 +91,9 @@ export default function ArticlesPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* 顶部栏 */}
-        <div className="sticky top-0 z-10 bg-white border-b border-stone-100 px-8 py-3 flex items-center gap-4">
-          <div className="flex-1 relative max-w-md">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="sticky top-0 z-10 bg-white border-b border-stone-100 px-8 py-4 flex items-center gap-4">
+          <div className="flex-1 relative max-w-xl">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -101,9 +101,9 @@ export default function ArticlesPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search your library..."
-              className="w-full pl-9 pr-12 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full pl-12 pr-14 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-base text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-300 font-mono">⌘K</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-stone-300 font-mono">⌘K</span>
           </div>
           <div className="ml-auto relative group">
             <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center cursor-pointer select-none">
