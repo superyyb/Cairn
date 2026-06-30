@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { isLoggedIn, getToken } from '@/lib/auth'
+import { isLoggedIn, getToken, removeToken } from '@/lib/auth'
 import { fetchArticles, type Article } from '@/lib/api'
 import ArticleCard from '@/components/ArticleCard'
 import Sidebar from '@/components/Sidebar'
@@ -73,6 +73,11 @@ export default function ArticlesPage() {
     })
   }, [articles, selectedTag, search, showStarred])
 
+  function handleLogout() {
+    removeToken()
+    router.push('/login')
+  }
+
   const initial = getUserInitial()
 
   return (
@@ -100,9 +105,20 @@ export default function ArticlesPage() {
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-300 font-mono">⌘K</span>
           </div>
-          <div className="ml-auto">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center">
+          <div className="ml-auto relative group">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center cursor-pointer select-none">
               {initial}
+            </div>
+            <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl shadow-lg border border-stone-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign out
+              </button>
             </div>
           </div>
         </div>
@@ -113,7 +129,7 @@ export default function ArticlesPage() {
 
             {/* 标题 */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-stone-900">{showStarred ? 'Starred' : 'Recently saved'}</h2>
+              <h2 className="text-2xl font-bold text-indigo-700">{showStarred ? 'Starred' : 'Recently saved'}</h2>
               {!isLoading && !error && articles.length > 0 && (
                 <span className="text-sm text-stone-400">{articles.length} articles</span>
               )}
