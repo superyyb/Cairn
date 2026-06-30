@@ -127,7 +127,7 @@ export default function ChatPage() {
 
   const historySlot = (
     <div>
-      <p className="text-sm font-semibold text-stone-500 px-3 py-2">Chat History</p>
+      <p className="text-base font-semibold text-stone-500 px-3 py-2">Chat History</p>
       {history.length === 0 ? (
         <p className="text-xs text-stone-400 px-3">No history yet.</p>
       ) : (
@@ -149,13 +149,13 @@ export default function ChatPage() {
                       <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-indigo-500" />
                     )}
                     <div className="px-3 py-2">
-                      <p className={`text-xs font-medium leading-snug line-clamp-2 ${
+                      <p className={`text-sm font-medium leading-snug line-clamp-2 ${
                         active ? 'text-indigo-900' : 'text-stone-700'
                       }`}>
                         {session.question}
                       </p>
                       {session.answer && session.sources.length > 0 && (
-                        <p className="text-xs text-stone-400 mt-0.5 line-clamp-1">
+                        <p className="text-sm text-stone-400 mt-0.5 line-clamp-1">
                           {getExcerpt(session.answer)}
                         </p>
                       )}
@@ -175,7 +175,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-indigo-50/40 via-white to-white">
-      <Sidebar activePage="chat" articles={[]}>
+      <Sidebar activePage="chat" articles={[]} onStarredToggle={() => router.push('/articles?starred=true')}>
         {historySlot}
       </Sidebar>
 
@@ -203,17 +203,15 @@ export default function ChatPage() {
         {/* Main chat content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-4 py-12">
-            {!result && !loading && (
-              <div className="text-center mb-8">
-                <div className="flex justify-center mb-3">
-                  <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                </div>
-                <h2 className="text-3xl font-bold text-stone-900">Ask Your Library</h2>
-                <p className="text-stone-500 text-sm mt-2">Get answers from what you&apos;ve read.</p>
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-3">
+                <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
               </div>
-            )}
+              <h2 className="text-3xl font-bold text-stone-900">Ask Your Library</h2>
+              <p className="text-stone-500 text-sm mt-2">Get answers from what you&apos;ve read.</p>
+            </div>
 
             <form onSubmit={handleSubmit} className="flex gap-2 mb-8">
               <div className="relative flex-1">
