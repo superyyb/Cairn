@@ -23,6 +23,7 @@ export default function ArticlesPage() {
   const { data: articles = [], error, isLoading, mutate } = useSWR(
     isLoggedIn() ? '/api/articles' : null,
     fetchArticles,
+    { refreshInterval: articles => articles?.some(a => !a.ai_summary) ? 5000 : 0 },
   )
 
   const { data: user } = useSWR(
