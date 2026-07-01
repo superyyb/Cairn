@@ -60,7 +60,6 @@ def embed_article(article) -> list[float] | None:
 def analyze_article(
     title: str,
     content: str | None,
-    existing_tags: list[str] | None = None,
 ) -> ArticleAnalysis | None:
     """
     用 LLM 分析文章,返回摘要和标签。
@@ -249,8 +248,7 @@ def process_article_in_background(article_id: int) -> None:
     """
     from app.core.database import SessionLocal
     from app.models.article import Article
-    from app.models.tag import Tag
-    
+
     db = SessionLocal()
     try:
         article = db.query(Article).filter(Article.id == article_id).first()
@@ -263,11 +261,8 @@ def process_article_in_background(article_id: int) -> None:
             logger.info(f"Background task: article {article_id} already processed, skipping")
             return
         
-        # 查库里已有的所有标签,传给 AI 做归一化参考
-        existing_tags = [t.name for t in db.query(Tag).all()]
-
         # 调 AI
-        analysis = analyze_article(article.title, article.content, existing_tags)
+        analysis = analyze_article(article.title, article.content)
         if not analysis:
             logger.warning(f"Background task: AI analysis failed for article {article_id}")
             return
