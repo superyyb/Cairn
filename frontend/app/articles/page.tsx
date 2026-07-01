@@ -98,7 +98,6 @@ export default function ArticlesPage() {
               placeholder="Search your library..."
               className="w-full pl-12 pr-14 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-base text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-stone-300 font-mono">⌘K</span>
           </div>
           <div className="ml-auto relative group">
             <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center cursor-pointer select-none">
