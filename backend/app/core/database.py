@@ -8,7 +8,7 @@ from app.core.config import settings
 # 1. 创建数据库引擎(整个应用共享一个)
 engine = create_engine(
     settings.database_url,
-    echo=True,  # 开发时打印 SQL 语句,上线时改 False
+    echo=False,
     pool_pre_ping=True,  # 避免连接失效
 )
 
