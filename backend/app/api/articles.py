@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.rate_limit import article_rate_limit
@@ -120,6 +120,7 @@ def list_my_articles(
 
     articles = (
         db.query(Article)
+        .options(selectinload(Article.tags))
         .filter(Article.user_id == current_user.id)
         .order_by(Article.created_at.desc())
         .offset(skip)
@@ -147,6 +148,7 @@ def get_article(
     """
     article = (
         db.query(Article)
+        .options(selectinload(Article.tags))
         .filter(
             Article.id == article_id,
             Article.user_id == current_user.id,
