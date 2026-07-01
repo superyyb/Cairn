@@ -99,9 +99,12 @@ export async function deleteArticle(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete article')
 }
 
-export async function toggleStar(id: number): Promise<Article> {
-  const res = await apiFetch(`/api/articles/${id}/star`, { method: 'PATCH' })
-  if (!res.ok) throw new Error('Failed to toggle star')
+export async function setStar(id: number, is_starred: boolean): Promise<Article> {
+  const res = await apiFetch(`/api/articles/${id}/star`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_starred }),
+  })
+  if (!res.ok) throw new Error('Failed to set star')
   return res.json()
 }
 

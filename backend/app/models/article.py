@@ -1,7 +1,7 @@
 """文章模型"""
 from datetime import datetime
 
-from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Column, Boolean
+from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Column, Boolean, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -67,5 +67,9 @@ class Article(Base):
         back_populates="articles",
     )
     
+    __table_args__ = (
+        UniqueConstraint('user_id', 'url_hash', name='uk_articles_user_url'),
+    )
+
     def __repr__(self):
         return f"<Article {self.id} - {self.title[:30]}>"

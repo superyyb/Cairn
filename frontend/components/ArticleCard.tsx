@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { type Article, deleteArticle, toggleStar } from '@/lib/api'
+import { type Article, deleteArticle, setStar } from '@/lib/api'
 
 interface Props {
   article: Article
@@ -46,7 +46,7 @@ export default function ArticleCard({ article, onTagClick, selectedTag, onDelete
     const next = !starred
     setStarred(next)
     try {
-      await toggleStar(article.id)
+      await setStar(article.id, next)
       onStar?.(article.id, next)
     } catch {
       setStarred(!next)

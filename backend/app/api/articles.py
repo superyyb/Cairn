@@ -2,6 +2,7 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -11,7 +12,7 @@ from app.core.utils import hash_url
 from app.models.article import Article
 from app.models.tag import Tag
 from app.models.user import User
-from app.schemas.article import ArticleCreate, ArticleResponse, ArticleSaveResult
+from app.schemas.article import ArticleCreate, ArticleResponse, ArticleSaveResult, StarPayload
 from app.services.ai_service import process_article_in_background
 
 logger = logging.getLogger(__name__)
@@ -71,9 +72,22 @@ def save_article(
         # ai_summary 留空,后台任务负责填写
     )
 
-    db.add(new_article)
-    db.commit()
-    db.refresh(new_article)
+    try:
+        db.add(new_article)
+        db.commit()
+        db.refresh(new_article)
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(Article)
+            .filter(Article.user_id == current_user.id, Article.url_hash == url_hash)
+            .first()
+        )
+        return ArticleSaveResult(
+            article=ArticleResponse.model_validate(existing),
+            is_new=False,
+            message="You've already saved this article.",
+        )
 
     # 3. 提交后台任务(HTTP 响应返回之后才会执行)
     #    只传 article_id(纯数据),后台任务自己开新的 db session
@@ -152,10 +166,11 @@ def get_article(
 @router.patch(
     "/{article_id}/star",
     response_model=ArticleResponse,
-    summary="Toggle star on an article",
+    summary="Set star state on an article",
 )
-def toggle_star(
+def set_star(
     article_id: int,
+    payload: StarPayload,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -165,7 +180,7 @@ def toggle_star(
     ).first()
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-    article.is_starred = not article.is_starred
+    article.is_starred = payload.is_starred
     db.commit()
     db.refresh(article)
     return article
