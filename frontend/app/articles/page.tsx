@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { isLoggedIn, removeToken } from '@/lib/auth'
 import { fetchArticles, fetchUser, type Article } from '@/lib/api'
@@ -9,22 +9,15 @@ import ArticleCard from '@/components/ArticleCard'
 import Sidebar from '@/components/Sidebar'
 
 export default function ArticlesPage() {
-  return (
-    <Suspense fallback={null}>
-      <ArticlesContent />
-    </Suspense>
-  )
-}
-
-function ArticlesContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [showStarred, setShowStarred] = useState(() => searchParams.get('starred') === 'true')
+  const [showStarred, setShowStarred] = useState(false)
 
   useEffect(() => {
     if (!isLoggedIn()) router.replace('/login')
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('starred') === 'true') setShowStarred(true)
   }, [router])
 
   const { data: articles = [], error, isLoading, mutate } = useSWR(
