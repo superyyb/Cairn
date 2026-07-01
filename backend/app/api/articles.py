@@ -2,6 +2,7 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -71,9 +72,22 @@ def save_article(
         # ai_summary 留空,后台任务负责填写
     )
 
-    db.add(new_article)
-    db.commit()
-    db.refresh(new_article)
+    try:
+        db.add(new_article)
+        db.commit()
+        db.refresh(new_article)
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(Article)
+            .filter(Article.user_id == current_user.id, Article.url_hash == url_hash)
+            .first()
+        )
+        return ArticleSaveResult(
+            article=ArticleResponse.model_validate(existing),
+            is_new=False,
+            message="You've already saved this article.",
+        )
 
     # 3. 提交后台任务(HTTP 响应返回之后才会执行)
     #    只传 article_id(纯数据),后台任务自己开新的 db session
