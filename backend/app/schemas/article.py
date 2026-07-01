@@ -53,6 +53,10 @@ class ArticleResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class StarPayload(BaseModel):
+    is_starred: bool
+
+
 class ArticleSaveResult(BaseModel):
     """
     保存接口的响应:除了文章信息,还告诉前端"是新的还是已有的"。

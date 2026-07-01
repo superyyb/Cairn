@@ -12,7 +12,7 @@ from app.core.utils import hash_url
 from app.models.article import Article
 from app.models.tag import Tag
 from app.models.user import User
-from app.schemas.article import ArticleCreate, ArticleResponse, ArticleSaveResult
+from app.schemas.article import ArticleCreate, ArticleResponse, ArticleSaveResult, StarPayload
 from app.services.ai_service import process_article_in_background
 
 logger = logging.getLogger(__name__)
@@ -166,10 +166,11 @@ def get_article(
 @router.patch(
     "/{article_id}/star",
     response_model=ArticleResponse,
-    summary="Toggle star on an article",
+    summary="Set star state on an article",
 )
-def toggle_star(
+def set_star(
     article_id: int,
+    payload: StarPayload,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -179,7 +180,7 @@ def toggle_star(
     ).first()
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-    article.is_starred = not article.is_starred
+    article.is_starred = payload.is_starred
     db.commit()
     db.refresh(article)
     return article
