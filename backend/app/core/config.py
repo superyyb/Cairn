@@ -10,8 +10,14 @@ class Settings(BaseSettings):
 
     # JWT
     secret_key: str
-    access_token_expire_minutes: int = 10080
+    access_token_expire_minutes: int = 15
     algorithm: str = "HS256"
+
+    # Refresh token
+    refresh_token_expire_days_web: int = 30
+    refresh_token_expire_days_extension: int = 14
+    cookie_secure: bool = False  # True in production (HTTPS only)
+    allowed_origins: str = "http://localhost:3000"  # comma-separated
     
     # OpenAI(新增)
     openai_api_key: str

@@ -18,6 +18,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     chat_sessions = relationship("ChatSession", back_populates="user")
+    refresh_tokens = relationship("RefreshToken", back_populates="user")
 
     def __repr__(self):
         return f"<User {self.email}>"

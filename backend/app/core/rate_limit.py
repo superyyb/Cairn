@@ -1,4 +1,4 @@
-"""Redis-backed rate limiting for LLM endpoints."""
+"""Redis-backed rate limiting for API endpoints."""
 import logging
 import redis
 from fastapi import Depends, HTTPException, Request, status
@@ -9,12 +9,13 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-CHAT_LIMIT = 20      # questions per day
-ARTICLE_LIMIT = 50   # saves per day
-WINDOW_SEC = 86400   # 24 hours
+CHAT_LIMIT = 20         # questions per day
+ARTICLE_LIMIT = 50      # saves per day
+WINDOW_24H = 86400
 
-LOGIN_LIMIT = 10     # attempts per window
-LOGIN_WINDOW_SEC = 900  # 15 minutes
+LOGIN_LIMIT = 10        # attempts per 15 min
+REFRESH_LIMIT = 20      # attempts per 15 min
+WINDOW_15M = 900
 
 _redis_client: redis.Redis | None = None
 
@@ -26,31 +27,35 @@ def get_redis() -> redis.Redis:
     return _redis_client
 
 
-def _check_limit(user_id: int, key: str, limit: int, label: str) -> None:
+def _check_limit(identifier: str | int, key: str, limit: int, label: str, window_sec: int = WINDOW_24H) -> None:
     r = get_redis()
     try:
         count = r.incr(key)
         if count == 1:
-            r.expire(key, WINDOW_SEC)
+            r.expire(key, window_sec)
         if count > limit:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Daily limit reached: {limit} {label} per day.",
-                headers={"Retry-After": str(WINDOW_SEC)},
+                detail=f"Rate limit reached: {limit} {label}.",
+                headers={"Retry-After": str(window_sec)},
             )
     except redis.RedisError as e:
-        # Fail-open: allow request through, but log so we know Redis is down
-        logger.warning(f"Redis unavailable, rate limiting skipped for user {user_id}: {e}")
+        logger.warning(f"Redis unavailable, rate limiting skipped for {identifier}: {e}")
 
 
 def login_rate_limit(request: Request) -> None:
     ip = request.client.host if request.client else "unknown"
-    _check_limit(ip, f"rate:login:{ip}", LOGIN_LIMIT, "login attempts")
+    _check_limit(ip, f"rate:login:{ip}", LOGIN_LIMIT, "login attempts per 15 minutes", WINDOW_15M)
+
+
+def refresh_rate_limit(request: Request) -> None:
+    ip = request.client.host if request.client else "unknown"
+    _check_limit(ip, f"rate:refresh:{ip}", REFRESH_LIMIT, "refresh attempts per 15 minutes", WINDOW_15M)
 
 
 def chat_rate_limit(current_user: User = Depends(get_current_user)) -> None:
-    _check_limit(current_user.id, f"rate:chat:{current_user.id}", CHAT_LIMIT, "questions")
+    _check_limit(current_user.id, f"rate:chat:{current_user.id}", CHAT_LIMIT, "questions per day")
 
 
 def article_rate_limit(current_user: User = Depends(get_current_user)) -> None:
-    _check_limit(current_user.id, f"rate:article:{current_user.id}", ARTICLE_LIMIT, "articles")
+    _check_limit(current_user.id, f"rate:article:{current_user.id}", ARTICLE_LIMIT, "article saves per day")
