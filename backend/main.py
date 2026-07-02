@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import app.models  # noqa: F401 — registers all ORM models before mapper resolves relationships
 from app.api import users, auth, articles, chat
+from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
 # 配置日志
@@ -14,10 +15,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Cairn API", version="0.2.0")
 # 开发环境允许所有来源(Week 6 部署时再收紧)
+_origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

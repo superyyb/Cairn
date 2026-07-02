@@ -1,9 +1,10 @@
 """鉴权相关 API"""
+import logging
 import secrets
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from app.core.rate_limit import login_rate_limit
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from pydantic import BaseModel
@@ -11,51 +12,102 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.rate_limit import login_rate_limit, refresh_rate_limit
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    hash_token,
+    verify_password,
+)
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.auth import Token
+from app.schemas.auth import Token, TokenWithRefresh, RefreshRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+COOKIE_NAME = "refresh_token"
 
-@router.post("/login", response_model=Token)
+
+def _set_refresh_cookie(response: Response, raw_token: str, expires_days: int) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=raw_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=expires_days * 86400,
+        path="/api/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=COOKIE_NAME, path="/api/auth")
+
+
+def _issue_tokens(
+    db: Session,
+    response: Response,
+    user_id: int,
+    client_type: str,
+) -> Token | TokenWithRefresh:
+    """Issue access token + refresh token for a user. Handles both web and extension."""
+    access_token = create_access_token(subject=user_id)
+    raw_refresh, token_hash = create_refresh_token()
+
+    expires_days = (
+        settings.refresh_token_expire_days_web
+        if client_type == "web"
+        else settings.refresh_token_expire_days_extension
+    )
+
+    db.add(RefreshToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        client_type=client_type,
+        expires_at=datetime.utcnow() + timedelta(days=expires_days),
+    ))
+    db.commit()
+
+    if client_type == "web":
+        _set_refresh_cookie(response, raw_refresh, expires_days)
+        return Token(access_token=access_token)
+    else:
+        return TokenWithRefresh(access_token=access_token, refresh_token=raw_refresh)
+
+
+@router.post("/login")
 def login(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
+    client_type: str = Query(default="web"),
     _: None = Depends(login_rate_limit),
     db: Session = Depends(get_db),
 ):
-    """
-    User login. Returns a JWT access token on success.
-
-    OAuth2 standard: credentials are sent as form-data with username and password fields.
-    Note: the "username" field should contain the user's email address.
-    """
-    # 1. 根据邮箱查用户(form_data.username 实际填的是邮箱)
     user = db.query(User).filter(User.email == form_data.username).first()
-    
-    # 2. 用户不存在 OR 密码错 → 统一返回 401
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},  # OAuth2 规范要求
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # 3. 生成 JWT
-    access_token = create_access_token(subject=user.id)
-
-    return Token(access_token=access_token)
+    return _issue_tokens(db, response, user.id, client_type)
 
 
 class GoogleLoginRequest(BaseModel):
-    credential: str  # Google 返回的 id_token
+    credential: str
 
 
-@router.post("/google", response_model=Token)
-def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
-    """Google OAuth 登录：验证 id_token，找到或创建用户，返回 JWT。"""
-    # 1. 验证 Google id_token
+@router.post("/google")
+def google_login(
+    payload: GoogleLoginRequest,
+    response: Response,
+    client_type: str = Query(default="web"),
+    db: Session = Depends(get_db),
+):
     try:
         idinfo = id_token.verify_oauth2_token(
             payload.credential,
@@ -63,28 +115,96 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
             settings.google_client_id,
         )
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Google token",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
 
     email = idinfo.get("email")
-    name = idinfo.get("name") or email.split("@")[0]
-
     if not email:
         raise HTTPException(status_code=400, detail="Google account has no email")
 
-    # 2. 找已有用户，没有就创建
+    name = idinfo.get("name") or email.split("@")[0]
+
     user = db.query(User).filter(User.email == email).first()
     if not user:
         user = User(
             email=email,
             username=name,
-            password_hash=hash_password(secrets.token_hex(32)),  # Google 用户无密码
+            password_hash=hash_password(secrets.token_hex(32)),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    # 3. 返回 JWT
-    return Token(access_token=create_access_token(subject=user.id))
+    return _issue_tokens(db, response, user.id, client_type)
+
+
+@router.post("/refresh")
+def refresh(
+    request: Request,
+    response: Response,
+    client_type: str = Query(default="web"),
+    body: RefreshRequest | None = None,
+    _: None = Depends(refresh_rate_limit),
+    db: Session = Depends(get_db),
+):
+    # Get raw token from cookie (web) or request body (extension)
+    if client_type == "web":
+        raw_token = request.cookies.get(COOKIE_NAME)
+    else:
+        raw_token = body.refresh_token if body else None
+
+    if not raw_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token")
+
+    token_hash = hash_token(raw_token)
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+
+    if not db_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    # Token reuse detection: revoked token used again → revoke ALL user sessions
+    if db_token.revoked_at is not None:
+        logger.warning(f"Refresh token reuse detected for user {db_token.user_id} — revoking all sessions")
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == db_token.user_id,
+            RefreshToken.revoked_at.is_(None),
+        ).update({"revoked_at": datetime.utcnow()})
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalidated. Please log in again.")
+
+    if db_token.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    # Rotate: revoke old token, issue new pair
+    db_token.revoked_at = datetime.utcnow()
+    db.commit()
+
+    return _issue_tokens(db, response, db_token.user_id, client_type)
+
+
+@router.post("/logout")
+def logout(
+    request: Request,
+    response: Response,
+    client_type: str = Query(default="web"),
+    body: RefreshRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    if client_type == "web":
+        raw_token = request.cookies.get(COOKIE_NAME)
+    else:
+        raw_token = body.refresh_token if body else None
+
+    if raw_token:
+        token_hash = hash_token(raw_token)
+        db_token = db.query(RefreshToken).filter(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked_at.is_(None),
+        ).first()
+        if db_token:
+            db_token.revoked_at = datetime.utcnow()
+            db.commit()
+
+    if client_type == "web":
+        _clear_refresh_cookie(response)
+
+    return {"message": "Logged out"}

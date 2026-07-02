@@ -1,4 +1,6 @@
-"""安全相关工具:密码哈希 + JWT"""
+"""安全相关工具:密码哈希 + JWT + refresh token"""
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -14,8 +16,18 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
 
-# 密码哈希
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_token(raw_token: str) -> str:
+    """SHA256 hash a raw token for safe DB storage."""
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+def create_refresh_token() -> tuple[str, str]:
+    """Generate a (raw_token, token_hash) pair. Store hash in DB, send raw to client."""
+    raw = secrets.token_urlsafe(32)
+    return raw, hash_token(raw)
 
 
 def hash_password(password: str) -> str:
