@@ -20,6 +20,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.models.oauth_account import OAuthAccount
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import Token, TokenWithRefresh, RefreshRequest
@@ -117,20 +118,42 @@ def google_login(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
 
+    if not idinfo.get("email_verified"):
+        raise HTTPException(status_code=400, detail="Google email not verified")
+
+    sub = idinfo["sub"]
     email = idinfo.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Google account has no email")
-
     name = idinfo.get("name") or email.split("@")[0]
 
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        user = User(
+    # Look up by Google sub (stable) rather than email
+    oauth_account = db.query(OAuthAccount).filter(
+        OAuthAccount.provider == "google",
+        OAuthAccount.provider_user_id == sub,
+    ).first()
+
+    if oauth_account:
+        user = oauth_account.user
+    else:
+        # First Google login — find existing user by email or create new one
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                email=email,
+                username=name,
+                password_hash=hash_password(secrets.token_hex(32)),
+            )
+            db.add(user)
+            db.flush()
+
+        oauth_account = OAuthAccount(
+            user_id=user.id,
+            provider="google",
+            provider_user_id=sub,
             email=email,
-            username=name,
-            password_hash=hash_password(secrets.token_hex(32)),
         )
-        db.add(user)
+        db.add(oauth_account)
         db.commit()
         db.refresh(user)
 
