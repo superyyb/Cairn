@@ -19,6 +19,7 @@ class User(Base):
 
     chat_sessions = relationship("ChatSession", back_populates="user")
     refresh_tokens = relationship("RefreshToken", back_populates="user")
+    oauth_accounts = relationship("OAuthAccount", back_populates="user")
 
     def __repr__(self):
         return f"<User {self.email}>"
