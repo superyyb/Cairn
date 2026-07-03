@@ -1,18 +1,18 @@
-const TOKEN_KEY = 'cairn_token'
+// Access token 只存内存，页面关闭自动清除，JS 无法通过 XSS 读取 cookie 里的 refresh token
+let _token: string | null = null
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null  // SSR 环境没有 window
-  return localStorage.getItem(TOKEN_KEY)
+  return _token
 }
 
 export function saveToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  _token = token
 }
 
 export function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  _token = null
 }
 
 export function isLoggedIn(): boolean {
-  return !!getToken()
+  return _token !== null
 }

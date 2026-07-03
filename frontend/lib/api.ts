@@ -1,12 +1,74 @@
+import { getToken, saveToken, removeToken } from './auth'
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-export async function apiLogin(email: string, password: string) {
+// ===== Refresh lock：多个请求同时 401 时只发一次 refresh =====
+
+let _refreshPromise: Promise<string | null> | null = null
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = fetch(`${API_BASE}/api/auth/refresh?client_type=web`, {
+    method: 'POST',
+    credentials: 'include', // 发送 httpOnly cookie 里的 refresh token
+  })
+    .then(async (res) => {
+      if (!res.ok) return null
+      const data = await res.json()
+      saveToken(data.access_token)
+      return data.access_token as string
+    })
+    .catch(() => null)
+    .finally(() => { _refreshPromise = null })
+
+  return _refreshPromise
+}
+
+// 页面加载时尝试用 cookie 里的 refresh token 恢复登录状态
+export async function tryRestoreSession(): Promise<boolean> {
+  const token = await refreshAccessToken()
+  return token !== null
+}
+
+// ===== 核心请求函数 =====
+
+export async function apiFetch(path: string, options: RequestInit = {}, _retry = true): Promise<Response> {
+  const token = getToken()
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  })
+
+  if (res.status === 401 && _retry) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      return apiFetch(path, options, false) // 用新 token 重试一次
+    }
+    removeToken()
+    window.location.href = '/login'
+    throw new Error('Session expired')
+  }
+
+  return res
+}
+
+// ===== Auth =====
+
+export async function apiLogin(email: string, password: string): Promise<{ access_token: string }> {
   const formData = new URLSearchParams()
   formData.append('username', email)
   formData.append('password', password)
 
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
+  const res = await fetch(`${API_BASE}/api/auth/login?client_type=web`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData,
   })
@@ -16,30 +78,16 @@ export async function apiLogin(email: string, password: string) {
     throw new Error(err.detail || 'Login failed')
   }
 
-  return res.json() as Promise<{ access_token: string; token_type: string }>
+  return res.json()
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  const { getToken } = await import('./auth')
-  const token = getToken()
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-
-  if (res.status === 401) {
-    const { removeToken } = await import('./auth')
-    removeToken()
-    window.location.href = '/login'
-    throw new Error('Session expired')
-  }
-
-  return res
+export async function apiLogout(): Promise<void> {
+  await fetch(`${API_BASE}/api/auth/logout?client_type=web`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {}) // 即使失败也继续清除本地状态
+  removeToken()
+  window.location.href = '/login'
 }
 
 // ===== 用户相关类型 =====

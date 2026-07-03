@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleLogin } from '@react-oauth/google'
-import { apiLogin, apiFetch } from '@/lib/api'
+import { apiLogin, apiLogout, tryRestoreSession } from '@/lib/api'
 import { saveToken, isLoggedIn } from '@/lib/auth'
 
 export default function LoginPage() {
@@ -14,7 +14,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isLoggedIn()) router.replace('/articles')
+    if (isLoggedIn()) {
+      router.replace('/articles')
+      return
+    }
+    // 已有 refresh token cookie（上次登录过）→ 静默恢复，跳过登录页
+    tryRestoreSession().then(ok => { if (ok) router.replace('/articles') })
   }, [router])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -37,8 +42,11 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await apiFetch('/api/auth/google', {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_BASE}/api/auth/google?client_type=web`, {
         method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential }),
       })
       if (!res.ok) {
