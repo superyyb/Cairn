@@ -139,3 +139,60 @@ input:focus {
     margin-top: 12px;
     text-decoration: underline;
 }
+
+.google-btn {
+    width: 100%;
+    padding: 10px 12px;
+    background: white;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.google-btn:hover { background: #f8f9fa; }
+.google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.secondary-btn {
+    width: 100%;
+    padding: 10px;
+    background: white;
+    color: #1a1a1a;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.secondary-btn:hover { background: #f6f8fa; }
+.secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.divider {
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    margin: 10px 0;
+    position: relative;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 42%;
+    height: 1px;
+    background: #e0e0e0;
+}
+
+.divider::before { left: 0; }
+.divider::after { right: 0; }
