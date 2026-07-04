@@ -62,13 +62,13 @@ export async function apiFetch(path: string, options: RequestInit = {}, _retry =
 // ===== Auth =====
 
 
-export async function apiLogout(): Promise<void> {
+export async function apiLogout(redirectTo = '/login'): Promise<void> {
   await fetch(`${API_BASE}/api/auth/logout?client_type=web`, {
     method: 'POST',
     credentials: 'include',
-  }).catch(() => {}) // 即使失败也继续清除本地状态
+  }).catch(() => {})
   removeToken()
-  window.location.href = '/login'
+  window.location.href = redirectTo
 }
 
 // ===== 用户相关类型 =====

@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { isLoggedIn, removeToken } from '@/lib/auth'
-import { askQuestion, getHistory, fetchUser, type AskResponse, type ChatSession } from '@/lib/api'
+import { isLoggedIn } from '@/lib/auth'
+import { askQuestion, getHistory, fetchUser, apiLogout, type AskResponse, type ChatSession } from '@/lib/api'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Sidebar from '@/components/Sidebar'
@@ -94,8 +94,7 @@ export default function ChatPage() {
   }, [router, loadHistory])
 
   function handleLogout() {
-    removeToken()
-    router.push('/login')
+    apiLogout()
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -186,7 +185,16 @@ export default function ChatPage() {
             <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center cursor-pointer select-none">
               {initial}
             </div>
-            <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl shadow-lg border border-stone-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-stone-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <button
+                onClick={() => apiLogout('/login?switch=true')}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Switch account
+              </button>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors"

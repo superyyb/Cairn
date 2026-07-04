@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { GoogleLogin } from '@react-oauth/google'
 import { tryRestoreSession } from '@/lib/api'
 import { saveToken, isLoggedIn } from '@/lib/auth'
@@ -10,14 +10,18 @@ export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const isSwitching = searchParams.get('switch') === 'true'
 
   useEffect(() => {
     if (isLoggedIn()) {
       router.replace('/articles')
       return
     }
-    tryRestoreSession().then(ok => { if (ok) router.replace('/articles') })
-  }, [router])
+    if (!isSwitching) {
+      tryRestoreSession().then(ok => { if (ok) router.replace('/articles') })
+    }
+  }, [router, isSwitching])
 
   async function handleGoogleSuccess(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return
@@ -59,7 +63,9 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-stone-900">Cairn</h1>
-          <p className="text-stone-500 text-sm mt-1">Sign in to your library</p>
+          <p className="text-stone-500 text-sm mt-1">
+            {isSwitching ? 'Sign in with a different account' : 'Sign in to your library'}
+          </p>
         </div>
 
         <div className="bg-white border border-stone-200 rounded-xl p-8 shadow-sm">
@@ -67,7 +73,7 @@ export default function LoginPage() {
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => setError('Google login failed')}
-              useOneTap
+              useOneTap={!isSwitching}
               shape="rectangular"
               size="large"
               width="320"

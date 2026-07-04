@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { type Article, apiLogout } from '@/lib/api'
+import { type Article } from '@/lib/api'
 
 interface Props {
   articles: Article[]
@@ -119,17 +119,6 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
       ) : (
         <div className="flex-1" />
       )}
-
-      {/* Sign out */}
-      <button
-        onClick={apiLogout}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-stone-400 hover:text-stone-600 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-        Sign out
-      </button>
 
       {/* Stats card — library only */}
       {!children && articles.length > 0 && (
