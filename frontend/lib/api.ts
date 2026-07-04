@@ -61,25 +61,6 @@ export async function apiFetch(path: string, options: RequestInit = {}, _retry =
 
 // ===== Auth =====
 
-export async function apiLogin(email: string, password: string): Promise<{ access_token: string }> {
-  const formData = new URLSearchParams()
-  formData.append('username', email)
-  formData.append('password', password)
-
-  const res = await fetch(`${API_BASE}/api/auth/login?client_type=web`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData,
-  })
-
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Login failed')
-  }
-
-  return res.json()
-}
 
 export async function apiLogout(): Promise<void> {
   await fetch(`${API_BASE}/api/auth/logout?client_type=web`, {
