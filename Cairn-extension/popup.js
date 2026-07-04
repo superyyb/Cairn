@@ -97,13 +97,6 @@ function renderLoginView() {
     document.getElementById('save-view').classList.add('hidden');
 
     document.getElementById('google-btn').addEventListener('click', handleGoogleLogin);
-    document.getElementById('login-btn').addEventListener('click', handleEmailLogin);
-    document.getElementById('email').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('password').focus();
-    });
-    document.getElementById('password').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleEmailLogin();
-    });
 }
 
 async function renderSaveView() {
@@ -172,52 +165,6 @@ async function handleGoogleLogin() {
         statusEl.textContent = `❌ ${error.message}`;
         statusEl.className = 'status error';
         btn.disabled = false;
-    }
-}
-
-
-// ===== 邮箱密码登录 =====
-
-async function handleEmailLogin() {
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const statusEl = document.getElementById('login-status');
-    const btn = document.getElementById('login-btn');
-
-    if (!email || !password) {
-        statusEl.textContent = 'Please fill in both fields';
-        statusEl.className = 'status error';
-        return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Signing in...';
-    statusEl.textContent = '';
-
-    try {
-        const formData = new URLSearchParams();
-        formData.append('username', email);
-        formData.append('password', password);
-
-        const res = await fetch(`${API_BASE}/api/auth/login?client_type=extension`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData,
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Login failed');
-        }
-
-        const data = await res.json();
-        await saveTokens(data.access_token, data.refresh_token);
-        await renderSaveView();
-    } catch (error) {
-        statusEl.textContent = `❌ ${error.message}`;
-        statusEl.className = 'status error';
-        btn.disabled = false;
-        btn.textContent = 'Sign In with Email';
     }
 }
 
