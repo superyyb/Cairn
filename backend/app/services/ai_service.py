@@ -60,6 +60,7 @@ def embed_article(article) -> list[float] | None:
 def analyze_article(
     title: str,
     content: str | None,
+    existing_tags: list[str] | None = None,
 ) -> ArticleAnalysis | None:
     """
     用 LLM 分析文章,返回摘要和标签。
@@ -75,7 +76,14 @@ def analyze_article(
     truncated_content = content[:8000]  # 约 2000-3000 token
 
     # 3. 构造 prompt
-    system_prompt = """You are a content tagging assistant for a personal knowledge library.
+    tag_hint = ""
+    if existing_tags:
+        tag_hint = (
+            f"\n\nExisting tags in this library — reuse these exact strings whenever they fit, "
+            f"instead of inventing new variants:\n{', '.join(existing_tags)}"
+        )
+
+    system_prompt = f"""You are a content tagging assistant for a personal knowledge library.
 Given an article, you produce:
 1. A concise summary (1-2 sentences) capturing the core idea
 2. 1-2 tags that best categorize this article
@@ -84,6 +92,7 @@ Tag rules:
 - Tags must be technologies, concepts, or domain topics — never generic words like "tutorial", "guide", "interesting"
 - Use lowercase with hyphens for multi-word tags (e.g. "distributed-systems", not "distributed systems")
 - Good tag examples: "kubernetes", "rust", "rag", "react", "security", "database"
+- STRONGLY prefer reusing an existing tag over creating a new one — only create a new tag if nothing in the existing list is a good fit{tag_hint}
 
 Respond with the same language as the article (English in / English out, 中文 in / 中文 out).
 """
@@ -260,22 +269,48 @@ def process_article_in_background(article_id: int) -> None:
         if article.ai_summary:
             logger.info(f"Background task: article {article_id} already processed, skipping")
             return
-        
-        # 调 AI
-        analysis = analyze_article(article.title, article.content)
+
+        # 复用已有结果：同一 URL 若被其他用户完整处理过，直接拷贝，跳过 OpenAI 调用。
+        # 注意：同时检查 ai_summary 和 embedding 都不为 None，避免复用一个半成品 donor。
+        # 竞态说明：两个任务并发处理同一全新 URL 时，都会查不到 donor 并各自调一次
+        # OpenAI——这不是数据错误，只是偶尔多花一次 API 调用，可接受。
+        from app.models.tag import Tag
+        donor = (
+            db.query(Article)
+            .filter(
+                Article.url_hash == article.url_hash,
+                Article.id != article.id,
+                Article.ai_summary.isnot(None),
+                Article.embedding.isnot(None),
+            )
+            .order_by(Article.created_at)  # 选最早处理完的，结果确定可预期
+            .first()
+        )
+
+        if donor:
+            article.ai_summary = donor.ai_summary
+            article.embedding = donor.embedding
+            article.tags = donor.tags
+            db.commit()
+            logger.info(f"✅ Article {article_id} reused AI results from donor {donor.id}")
+            return
+
+        # donor 不存在，走完整 AI 流程
+        existing_tag_names = [t.name for t in db.query(Tag).all()]
+        analysis = analyze_article(article.title, article.content, existing_tag_names)
         if not analysis:
             logger.warning(f"Background task: AI analysis failed for article {article_id}")
             return
-        
+
         # 写入摘要
         article.ai_summary = analysis.summary
-        
+
         # 处理标签（带 embedding 语义去重）
         for tag_name in analysis.tags:
             tag = _resolve_tag(db, tag_name)
             if tag not in article.tags:
                 article.tags.append(tag)
-        
+
         # 生成向量（摘要已写入，向量质量更高）
         embedding = embed_article(article)
         if embedding:
