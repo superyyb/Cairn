@@ -247,13 +247,13 @@ def _resolve_tag(db, tag_name: str):
     return new_tag
 
 
-# 异步处理函数(Day 13)
+# 异步处理函数,由 arq worker 调用(见 app/worker.py)
 def process_article_in_background(article_id: int) -> None:
     """
     后台任务:分析文章并把结果写入数据库。
-    
+
     这个函数会在新的数据库 session 里运行(因为请求的 session 在 return 时关闭了)。
-    任何异常都不能往外抛,只记日志(后台任务异常没人接)。
+    失败会往外抛异常——arq 的 worker 负责捕获并决定是否重试,这里不再吞掉异常。
     """
     from app.core.database import SessionLocal
     from app.models.article import Article
@@ -264,7 +264,7 @@ def process_article_in_background(article_id: int) -> None:
         if not article:
             logger.warning(f"Background task: article {article_id} not found")
             return
-        
+
         # 跳过已处理过的(防止重复执行)
         if article.ai_summary:
             logger.info(f"Background task: article {article_id} already processed, skipping")
@@ -291,16 +291,28 @@ def process_article_in_background(article_id: int) -> None:
             article.ai_summary = donor.ai_summary
             article.embedding = donor.embedding
             article.tags = donor.tags
+            article.status = "done"
             db.commit()
             logger.info(f"✅ Article {article_id} reused AI results from donor {donor.id}")
             return
+
+        # 内容太短/缺失：本来就分析不出东西，不是失败，不需要重试
+        if not article.content or len(article.content.strip()) < 100:
+            article.status = "skipped"
+            db.commit()
+            logger.info(f"Article {article_id}: content too short, marking skipped")
+            return
+
+        # 标记为处理中：worker 若在这之后崩溃,能看到它死在了哪一步
+        article.status = "processing"
+        db.commit()
 
         # donor 不存在，走完整 AI 流程
         existing_tag_names = [t.name for t in db.query(Tag).all()]
         analysis = analyze_article(article.title, article.content, existing_tag_names)
         if not analysis:
-            logger.warning(f"Background task: AI analysis failed for article {article_id}")
-            return
+            # OpenAI 调用失败是暂时性问题，往外抛让 arq 重试
+            raise RuntimeError(f"AI analysis returned no result for article {article_id}")
 
         # 写入摘要
         article.ai_summary = analysis.summary
@@ -316,11 +328,35 @@ def process_article_in_background(article_id: int) -> None:
         if embedding:
             article.embedding = embedding
 
+        article.status = "done"
         db.commit()
         logger.info(f"✅ Background AI processing done for article {article_id}")
-        
+
     except Exception as e:
         logger.exception(f"Background task error for article {article_id}: {e}")
         db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def mark_article_failed(article_id: int) -> None:
+    """
+    把文章标记为永久失败。只在 status 还是 processing 时才改,
+    避免和一个刚好并发完成的 done 状态互相覆盖。
+
+    调用方:arq worker 在重试次数耗尽时(app/worker.py),
+    以及定期巡检卡死任务的 reconcile_stuck_articles cron job。
+    """
+    from app.core.database import SessionLocal
+    from app.models.article import Article
+
+    db = SessionLocal()
+    try:
+        article = db.query(Article).filter(Article.id == article_id).first()
+        if article and article.status == "processing":
+            article.status = "failed"
+            db.commit()
+            logger.warning(f"Article {article_id} marked as failed")
     finally:
         db.close()
