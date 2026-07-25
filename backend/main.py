@@ -2,6 +2,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -19,8 +21,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     task = asyncio.create_task(cleanup_refresh_tokens())
+    # arq 连接池:绑定在这个事件循环上,供 save_article 端点复用来 enqueue 任务
+    app.state.arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     yield
     task.cancel()
+    await app.state.arq_pool.close()
 
 
 app = FastAPI(title="Cairn API", version="0.2.0", lifespan=lifespan)

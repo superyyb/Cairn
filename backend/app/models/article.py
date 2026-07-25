@@ -47,6 +47,9 @@ class Article(Base):
     is_starred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # AI 生成
+    # status 取值: pending(待处理) / processing(处理中) / done(已完成)
+    #             skipped(内容太短无需摘要) / failed(重试耗尽,永久失败)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(
     Vector(1536), nullable=True

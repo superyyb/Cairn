@@ -45,6 +45,7 @@ class ArticleResponse(BaseModel):
     lang: str | None
     length: int | None
     ai_summary: str | None
+    status: str
     is_starred: bool = False
     tags: list[TagOut] = []
     created_at: datetime

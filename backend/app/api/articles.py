@@ -1,10 +1,13 @@
 """文章相关 API"""
+import asyncio
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from arq.connections import ArqRedis
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.arq_pool import get_arq_pool
 from app.core.database import get_db
 from app.core.rate_limit import article_rate_limit
 from app.core.security import get_current_user
@@ -13,7 +16,6 @@ from app.models.article import Article
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.article import ArticleCreate, ArticleResponse, ArticleSaveResult, StarPayload
-from app.services.ai_service import process_article_in_background
 
 logger = logging.getLogger(__name__)
 
@@ -26,79 +28,95 @@ router = APIRouter(prefix="/api/articles", tags=["articles"])
     status_code=status.HTTP_200_OK,
     summary="Save an article (AI analysis runs asynchronously in background)",
 )
-def save_article(
+async def save_article(
     payload: ArticleCreate,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     _: None = Depends(article_rate_limit),
     db: Session = Depends(get_db),
+    arq_pool: ArqRedis = Depends(get_arq_pool),
 ):
     """
     接收 Chrome 插件的抓取结果,立刻保存并返回。
-    AI 摘要和标签会在后台异步生成,稍后刷新即可看到。
+    AI 摘要和标签会通过 arq 任务队列异步生成,稍后刷新即可看到。
     """
     url_str = str(payload.url)
     url_hash = hash_url(url_str)
 
-    # 1. 检查是否已保存
-    existing = (
-        db.query(Article)
-        .filter(
-            Article.user_id == current_user.id,
-            Article.url_hash == url_hash,
-        )
-        .first()
-    )
-
-    if existing:
-        return ArticleSaveResult(
-            article=ArticleResponse.model_validate(existing),
-            is_new=False,
-            message="You've already saved this article.",
-        )
-
-    # 2. 立刻保存(不等 AI)
-    new_article = Article(
-        user_id=current_user.id,
-        url=url_str,
-        url_hash=url_hash,
-        title=payload.title,
-        content=payload.content,
-        excerpt=payload.excerpt,
-        byline=payload.byline,
-        site_name=payload.site_name,
-        lang=payload.lang,
-        length=payload.length,
-        # ai_summary 留空,后台任务负责填写
-    )
-
-    try:
-        db.add(new_article)
-        db.commit()
-        db.refresh(new_article)
-    except IntegrityError:
-        db.rollback()
+    def _save_sync() -> tuple[Article, bool]:
+        """
+        同步的 DB 读写逻辑(查重 + insert + commit + refresh)。
+        这个端点是 async def(要 await arq enqueue),但 SQLAlchemy 的
+        Session 是同步的——放进 asyncio.to_thread 里跑,不让它挡住事件循环。
+        """
+        # 1. 检查是否已保存
         existing = (
             db.query(Article)
-            .filter(Article.user_id == current_user.id, Article.url_hash == url_hash)
+            .filter(
+                Article.user_id == current_user.id,
+                Article.url_hash == url_hash,
+            )
             .first()
         )
+        if existing:
+            return existing, False
+
+        # 2. 立刻保存(不等 AI)
+        new_article = Article(
+            user_id=current_user.id,
+            url=url_str,
+            url_hash=url_hash,
+            title=payload.title,
+            content=payload.content,
+            excerpt=payload.excerpt,
+            byline=payload.byline,
+            site_name=payload.site_name,
+            lang=payload.lang,
+            length=payload.length,
+            # ai_summary 留空,后台任务负责填写
+        )
+        try:
+            db.add(new_article)
+            db.commit()
+            db.refresh(new_article)
+        except IntegrityError:
+            db.rollback()
+            existing = (
+                db.query(Article)
+                .filter(Article.user_id == current_user.id, Article.url_hash == url_hash)
+                .first()
+            )
+            return existing, False
+
+        return new_article, True
+
+    article, is_new = await asyncio.to_thread(_save_sync)
+
+    if not is_new:
         return ArticleSaveResult(
-            article=ArticleResponse.model_validate(existing),
+            article=ArticleResponse.model_validate(article),
             is_new=False,
             message="You've already saved this article.",
         )
 
-    # 3. 提交后台任务(HTTP 响应返回之后才会执行)
-    #    只传 article_id(纯数据),后台任务自己开新的 db session
-    background_tasks.add_task(process_article_in_background, new_article.id)
-
-    logger.info(
-        f"Article {new_article.id} saved, AI processing scheduled in background"
-    )
+    # 3. 提交到 arq 队列(HTTP 响应返回之后由 worker 处理)
+    #    只传 article_id(纯数据),worker 自己开新的 db session
+    try:
+        await asyncio.wait_for(
+            arq_pool.enqueue_job(
+                "process_article_task",
+                article.id,
+                _job_id=f"article-{article.id}",
+            ),
+            timeout=2.0,
+        )
+        logger.info(f"Article {article.id} saved, AI processing enqueued")
+    except (Exception, asyncio.TimeoutError) as e:
+        # Redis 不可用时不能让整个请求失败——文章已经存好了,
+        # 停在 status="pending",以后可以手动/巡检重新入队。
+        logger.error(f"Failed to enqueue AI processing for article {article.id}: {e}")
 
     return ArticleSaveResult(
-        article=ArticleResponse.model_validate(new_article),
+        article=ArticleResponse.model_validate(article),
         is_new=True,
         message="Article saved! AI analysis is running in the background.",
     )

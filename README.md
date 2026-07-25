@@ -32,6 +32,7 @@ Cairn is an AI-powered personal knowledge base built as a Chrome Extension + web
 - Python 3.11+ with [uv](https://github.com/astral-sh/uv)
 - Node.js 18+
 - PostgreSQL 16+ with pgvector extension
+- Redis (used for rate limiting **and** the AI processing task queue — see below)
 - OpenAI API key
 - Google OAuth client ID (optional, for Google sign-in)
 
@@ -39,13 +40,22 @@ Cairn is an AI-powered personal knowledge base built as a Chrome Extension + web
 
 ```bash
 cd backend
-cp .env.example .env   # fill in DATABASE_URL, SECRET_KEY, OPENAI_API_KEY
+cp .env.example .env   # fill in DATABASE_URL, SECRET_KEY, OPENAI_API_KEY, REDIS_URL
 uv sync
 uv run alembic upgrade head
 uv run uvicorn main:app --reload
 ```
 
 API runs at `http://localhost:8000` — docs at `/docs`.
+
+AI processing (summaries, tags, embeddings) runs on a separate **arq** worker process, backed by Redis. Run it alongside the API in a second terminal:
+
+```bash
+cd backend
+uv run arq app.worker.WorkerSettings
+```
+
+> Redis was previously only used for rate limiting, which silently no-ops if Redis is unreachable. It's now a **hard** dependency for AI processing — without a running worker (or without Redis), saved articles stay at `status: "pending"` until the worker is available.
 
 ### Frontend
 
