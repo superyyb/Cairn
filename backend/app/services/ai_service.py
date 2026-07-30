@@ -138,6 +138,20 @@ Analyze this article."""
 
 # ===== RAG 回答生成 =====
 
+def build_source_context(sources: list[dict]) -> str:
+    """
+    把 sources 拼成真正喂给 GPT 的那段文本 —— generate_answer 用它，
+    eval 裁判(app/services/eval_service.py)也要用同一份，检查 faithfulness 时
+    对照的必须是模型实际看到的这段（摘要优先，没有摘要才退化用正文前 500 字），
+    而不是 sources 里那份没截断的完整 content，不然会误判。
+    """
+    context_parts = []
+    for s in sources:
+        text = s.get("ai_summary") or s.get("content", "")[:500]
+        context_parts.append(f'[{s["index"]}] {s["title"]}\n{text}')
+    return "\n\n".join(context_parts)
+
+
 def generate_answer(question: str, sources: list[dict]) -> str | None:
     """
     RAG 的 Generation 步骤：把检索到的文章作为上下文，让 GPT 生成回答。
@@ -148,11 +162,7 @@ def generate_answer(question: str, sources: list[dict]) -> str | None:
     if not sources:
         return None
 
-    context_parts = []
-    for s in sources:
-        text = s.get("ai_summary") or s.get("content", "")[:500]
-        context_parts.append(f'[{s["index"]}] {s["title"]}\n{text}')
-    context = "\n\n".join(context_parts)
+    context = build_source_context(sources)
 
     system_prompt = """You are a helpful assistant for a personal knowledge base called Cairn.
 The user has saved technical articles to their library. Answer their question using ONLY the provided articles.

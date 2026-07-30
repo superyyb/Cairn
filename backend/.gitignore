@@ -48,3 +48,6 @@ coverage.xml
 
 # uv
 .python-version  # 这个看你团队规范,有些团队保留
+
+# eval 校准样本 —— 每次跑批生成的原始数据 + 你的人工打分，不用进 git 历史
+eval_calibration/

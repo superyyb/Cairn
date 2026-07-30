@@ -1,0 +1,346 @@
+[
+  {
+    "external_id": "adv_001",
+    "category": "paraphrase",
+    "question": "If a pod hasn't been assigned to any node yet, what actually decides where it ends up running?",
+    "source_urls": ["https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/"],
+    "notes": "avoids the word 'scheduler' used verbatim in the summary"
+  },
+  {
+    "external_id": "adv_002",
+    "category": "paraphrase",
+    "question": "Why would a Python web API use async def instead of a regular function for its route handlers?",
+    "source_urls": ["https://fastapi.tiangolo.com/async/"],
+    "notes": "avoids 'concurrency'/'asyncio' terminology from the summary"
+  },
+  {
+    "external_id": "adv_003",
+    "category": "paraphrase",
+    "question": "I need to speed up lookups on a text column that has a lot of duplicate values — which kind of index should I reach for?",
+    "source_urls": ["https://www.postgresql.org/docs/current/indexes.html"],
+    "notes": "describes a use case instead of naming index types directly"
+  },
+  {
+    "external_id": "adv_004",
+    "category": "paraphrase",
+    "question": "What's the practical difference between writing to the cache first versus writing to the database first?",
+    "source_urls": ["https://redis.io/docs/manual/patterns/"],
+    "notes": "paraphrases cache-aside/write-through without naming them"
+  },
+  {
+    "external_id": "adv_005",
+    "category": "paraphrase",
+    "question": "Besides search, what else can those embedding vectors from an LLM provider actually be used for?",
+    "source_urls": ["https://platform.openai.com/docs/guides/embeddings"],
+    "notes": "avoids the word 'embeddings' pattern matching too directly"
+  },
+  {
+    "external_id": "adv_006",
+    "category": "paraphrase",
+    "question": "How do vector databases avoid comparing a query against every single stored vector one by one?",
+    "source_urls": ["https://qdrant.tech/articles/what-is-a-vector-database/"],
+    "notes": "avoids naming HNSW/IVF directly, describes the problem they solve"
+  },
+  {
+    "external_id": "adv_007",
+    "category": "paraphrase",
+    "question": "Why does my React component keep re-fetching data on every single render?",
+    "source_urls": ["https://react.dev/reference/react/useEffect"],
+    "notes": "phrased as a debugging question, not mentioning 'useEffect'"
+  },
+  {
+    "external_id": "adv_008",
+    "category": "paraphrase",
+    "question": "How can a server confirm a token wasn't tampered with, without doing a database lookup on every request?",
+    "source_urls": ["https://jwt.io/introduction"],
+    "notes": "avoids the term 'JWT' entirely"
+  },
+  {
+    "external_id": "adv_009",
+    "category": "paraphrase",
+    "question": "Why doesn't Rust need a garbage collector to manage memory safely?",
+    "source_urls": ["https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html"],
+    "notes": "avoids 'ownership'/'borrowing' terminology"
+  },
+  {
+    "external_id": "adv_010",
+    "category": "paraphrase",
+    "question": "What's the issue where fetching a list of items ends up triggering a separate query for every single item, and which query approach avoids it?",
+    "source_urls": ["https://graphql.org/learn/"],
+    "notes": "describes the N+1 problem without naming GraphQL directly"
+  },
+  {
+    "external_id": "adv_011",
+    "category": "paraphrase",
+    "question": "两个事务同时改同一行数据,怎么才能避免脏读和幻读?",
+    "source_urls": ["https://tech.meituan.com/2022/01/20/transaction-isolation-level.html"],
+    "notes": "中文 paraphrase,避免直接用'隔离级别'这个词"
+  },
+  {
+    "external_id": "adv_012",
+    "category": "paraphrase",
+    "question": "How does a streaming platform let multiple independent consumers each read through the entire set of messages on their own?",
+    "source_urls": ["https://www.confluent.io/learn/apache-kafka/"],
+    "notes": "avoids naming Kafka/partitions directly"
+  },
+  {
+    "external_id": "adv_020",
+    "category": "multi_hop",
+    "question": "How do Kubernetes Deployments coordinate with the scheduler to achieve zero-downtime rolling updates?",
+    "source_urls": [
+      "https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/",
+      "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/"
+    ],
+    "notes": "requires combining scheduler placement logic with Deployment rollout strategy"
+  },
+  {
+    "external_id": "adv_021",
+    "category": "multi_hop",
+    "question": "How does Raft's approach to leader election compare with the tradeoffs of Paxos and EPaxos?",
+    "source_urls": [
+      "https://martinfowler.com/articles/patterns-of-distributed-systems/raft.html",
+      "https://tech.bytedance.com/articles/distributed-consistency"
+    ],
+    "notes": "requires combining the Raft-specific article with the Paxos/Raft/EPaxos comparison article"
+  },
+  {
+    "external_id": "adv_022",
+    "category": "multi_hop",
+    "question": "If I embed my documents with an OpenAI embedding model, what indexing strategy would let me search them quickly at scale?",
+    "source_urls": [
+      "https://qdrant.tech/articles/what-is-a-vector-database/",
+      "https://platform.openai.com/docs/guides/embeddings"
+    ],
+    "notes": "requires combining embedding generation with vector index choice"
+  },
+  {
+    "external_id": "adv_023",
+    "category": "multi_hop",
+    "question": "How do retrieval augmentation and chain-of-thought prompting each help make an LLM's output more reliable?",
+    "source_urls": [
+      "https://www.pinecone.io/learn/retrieval-augmented-generation/",
+      "https://www.anthropic.com/research/prompting"
+    ],
+    "notes": "requires combining RAG grounding with prompting-technique reliability"
+  },
+  {
+    "external_id": "adv_024",
+    "category": "multi_hop",
+    "question": "Redis 的缓存模式选择,和它本身的内存管理、持久化策略之间,有什么需要一起权衡的地方?",
+    "source_urls": [
+      "https://redis.io/docs/manual/patterns/",
+      "https://blog.csdn.net/redis-performance-optimization"
+    ],
+    "notes": "requires combining caching-pattern article with Redis performance/persistence article"
+  },
+  {
+    "external_id": "adv_030",
+    "category": "true_negative",
+    "question": "What's a good recipe for sourdough bread?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_031",
+    "category": "true_negative",
+    "question": "How should a beginner train for their first marathon?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_032",
+    "category": "true_negative",
+    "question": "What are common symptoms of seasonal allergies?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_033",
+    "category": "true_negative",
+    "question": "Can you recommend a budget travel itinerary for two weeks in Japan?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_034",
+    "category": "true_negative",
+    "question": "怎么挑选适合婴儿的奶粉?",
+    "source_urls": [],
+    "notes": "中文,完全无关的主题"
+  },
+  {
+    "external_id": "adv_035",
+    "category": "true_negative",
+    "question": "What's a good way to get started learning watercolor painting?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_036",
+    "category": "true_negative",
+    "question": "How does compound interest work for a basic savings account?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_037",
+    "category": "true_negative",
+    "question": "What's an effective beginner workout routine for building shoulder strength?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_038",
+    "category": "true_negative",
+    "question": "What's the best way to remove a red wine stain from a white carpet?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_039",
+    "category": "true_negative",
+    "question": "How often should I water a succulent plant indoors?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_040",
+    "category": "true_negative",
+    "question": "What's a good gift idea for a 5-year-old's birthday?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_041",
+    "category": "true_negative",
+    "question": "How do I train my dog to stop barking at the mailman?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_042",
+    "category": "true_negative",
+    "question": "怎么快速判断一支红酒是不是变质了?",
+    "source_urls": [],
+    "notes": "中文,完全无关的主题"
+  },
+  {
+    "external_id": "adv_043",
+    "category": "true_negative",
+    "question": "What's the difference between a Roth IRA and a traditional IRA?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_044",
+    "category": "true_negative",
+    "question": "How long does it take to roast a whole chicken at 375 degrees Fahrenheit?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_045",
+    "category": "true_negative",
+    "question": "What were the main causes of the fall of the Roman Empire?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_046",
+    "category": "true_negative",
+    "question": "How do I get a stripped screw out of a piece of furniture?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_047",
+    "category": "true_negative",
+    "question": "What's a good beginner yoga routine for lower back pain?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_048",
+    "category": "true_negative",
+    "question": "How do you know if an avocado is ripe enough to eat?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_049",
+    "category": "true_negative",
+    "question": "What's the etiquette for tipping at a hair salon?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_050",
+    "category": "true_negative",
+    "question": "How do solar eclipses differ from lunar eclipses?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_051",
+    "category": "true_negative",
+    "question": "怎么给新生儿宝宝洗澡比较安全?",
+    "source_urls": [],
+    "notes": "中文,完全无关的主题"
+  },
+  {
+    "external_id": "adv_052",
+    "category": "true_negative",
+    "question": "What's a good strategy for negotiating a lower rent with my landlord?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_053",
+    "category": "true_negative",
+    "question": "How do I get my cat to stop scratching the couch?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_054",
+    "category": "true_negative",
+    "question": "What's the best way to descale a home coffee machine?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_055",
+    "category": "true_negative",
+    "question": "How many calories are in a medium-sized banana?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_056",
+    "category": "true_negative",
+    "question": "What's the plot of the movie Inception about?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_057",
+    "category": "true_negative",
+    "question": "How do I fix a leaky faucet in my bathroom?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_058",
+    "category": "true_negative",
+    "question": "What are some tips for improving my chess opening game?",
+    "source_urls": [],
+    "notes": "no saved article is remotely related"
+  },
+  {
+    "external_id": "adv_059",
+    "category": "true_negative",
+    "question": "怎么挑选适合送长辈的保健品?",
+    "source_urls": [],
+    "notes": "中文,完全无关的主题"
+  }
+]
