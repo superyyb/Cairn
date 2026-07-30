@@ -14,6 +14,9 @@ from app.models.article import Article  # noqa: F401
 from app.models.tag import Tag  # noqa: F401
 from app.models.chat_session import ChatSession  # noqa: F401
 from app.models.tag_merge import TagMerge  # noqa: F401
+from app.models.eval_question import EvalQuestion  # noqa: F401
+from app.models.eval_run import EvalRun  # noqa: F401
+from app.models.eval_result import EvalResult  # noqa: F401
 
 
 # this is the Alembic Config object, which provides
