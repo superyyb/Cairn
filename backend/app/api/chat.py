@@ -2,7 +2,6 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,10 +14,14 @@ from app.schemas.chat import (
     SearchRequest, SearchResponse, SearchResult,
 )
 from app.services.ai_service import embed_text, generate_answer
+from app.services.retrieval_service import retrieve_similar_articles, format_sources_for_llm
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+# 相似度低于这个阈值就直接拒答，不调 GPT（也是 eval runner 用来验证阈值本身合不合理的地方）
+RAG_SIMILARITY_THRESHOLD = 0.3
 
 
 @router.post(
@@ -39,29 +42,8 @@ def semantic_search(
             detail="Embedding service unavailable, please try again.",
         )
 
-    # 2. pgvector 余弦相似度检索
-    #    <=> 是 pgvector 的余弦距离运算符（距离越小越相似）
-    #    1 - distance = 相似度（越大越相关）
-    sql = text("""
-        SELECT
-            id,
-            title,
-            url,
-            ai_summary,
-            1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
-        FROM articles
-        WHERE
-            user_id = :user_id
-            AND embedding IS NOT NULL
-        ORDER BY embedding <=> CAST(:embedding AS vector)
-        LIMIT :top_k
-    """)
-
-    rows = db.execute(sql, {
-        "embedding": str(query_embedding),
-        "user_id": current_user.id,
-        "top_k": payload.top_k,
-    }).fetchall()
+    # 2. pgvector 余弦相似度检索（<=> 是余弦距离运算符，1 - distance = 相似度）
+    rows = retrieve_similar_articles(db, current_user.id, query_embedding, payload.top_k)
 
     results = [
         SearchResult(
@@ -102,23 +84,7 @@ def ask(
         )
 
     # 2. 检索最相关的文章（同时拿 content 用于生成）
-    sql = text("""
-        SELECT
-            id, title, url, content, ai_summary, created_at,
-            1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
-        FROM articles
-        WHERE
-            user_id = :user_id
-            AND embedding IS NOT NULL
-        ORDER BY embedding <=> CAST(:embedding AS vector)
-        LIMIT :top_k
-    """)
-
-    rows = db.execute(sql, {
-        "embedding": str(query_embedding),
-        "user_id": current_user.id,
-        "top_k": payload.top_k,
-    }).fetchall()
+    rows = retrieve_similar_articles(db, current_user.id, query_embedding, payload.top_k)
 
     if not rows:
         raise HTTPException(
@@ -127,9 +93,8 @@ def ask(
         )
 
     # 3. 相似度过低说明问题与库里文章完全无关，直接返回不调 GPT
-    SIMILARITY_THRESHOLD = 0.3
     max_similarity = max(float(row.similarity) for row in rows)
-    if max_similarity < SIMILARITY_THRESHOLD:
+    if max_similarity < RAG_SIMILARITY_THRESHOLD:
         logger.info(f"Off-topic question (max similarity {max_similarity:.3f}): '{payload.question[:50]}'")
         off_topic_answer = "Your library doesn't have any articles related to this question.\n\nCairn answers questions based on articles you've saved. Try asking something related to your saved content."
         chat_session = ChatSession(user_id=current_user.id, question=payload.question, answer=off_topic_answer)
@@ -143,15 +108,7 @@ def ask(
         )
 
     # 4. 构造传给 GPT 的 sources（带编号）
-    sources_for_llm = [
-        {
-            "index": i + 1,
-            "title": row.title,
-            "ai_summary": row.ai_summary,
-            "content": row.content,
-        }
-        for i, row in enumerate(rows)
-    ]
+    sources_for_llm = format_sources_for_llm(rows)
 
     # 5. GPT 生成回答
     answer = generate_answer(payload.question, sources_for_llm)
