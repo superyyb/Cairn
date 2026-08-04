@@ -4,7 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { isLoggedIn } from '@/lib/auth'
-import { askQuestion, getHistory, fetchUser, apiLogout, type AskResponse, type ChatSession } from '@/lib/api'
+import {
+  askQuestion, getHistory, fetchUser, apiLogout, submitFeedback, clearFeedback,
+  type AskResponse, type ChatSession, type Feedback,
+} from '@/lib/api'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Sidebar from '@/components/Sidebar'
@@ -67,6 +70,13 @@ function groupHistory(sessions: ChatSession[]) {
   return groups
 }
 
+const FEEDBACK_REASONS: { value: string; label: string }[] = [
+  { value: 'wrong_info', label: 'Inaccurate' },
+  { value: 'not_relevant', label: "Didn't answer" },
+  { value: 'missing_sources', label: 'Missing sources' },
+  { value: 'other', label: 'Other' },
+]
+
 export default function ChatPage() {
   const router = useRouter()
   const [question, setQuestion] = useState('')
@@ -75,6 +85,10 @@ export default function ChatPage() {
   const [error, setError] = useState('')
   const [history, setHistory] = useState<ChatSession[]>([])
   const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null)
+  const [resultSessionId, setResultSessionId] = useState<number | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [showReasonPanel, setShowReasonPanel] = useState(false)
+  const [feedbackComment, setFeedbackComment] = useState('')
 
   const { data: user } = useSWR(isLoggedIn() ? '/api/users/me' : null, fetchUser)
   const initial = user?.email?.charAt(0).toUpperCase() ?? 'A'
@@ -104,9 +118,14 @@ export default function ChatPage() {
     setError('')
     setResult(null)
     setActiveHistoryId(null)
+    setResultSessionId(null)
+    setFeedback(null)
+    setShowReasonPanel(false)
+    setFeedbackComment('')
     try {
       const data = await askQuestion(question.trim())
       setResult(data)
+      setResultSessionId(data.id)
       await loadHistory()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -117,9 +136,60 @@ export default function ChatPage() {
 
   function loadFromHistory(session: ChatSession) {
     setQuestion(session.question)
-    setResult({ question: session.question, answer: session.answer, sources: session.sources })
+    setResult({ id: session.id, question: session.question, answer: session.answer, sources: session.sources })
     setActiveHistoryId(session.id)
+    setResultSessionId(session.id)
+    setFeedback(session.feedback ?? null)
+    setShowReasonPanel(false)
+    setFeedbackComment('')
     setError('')
+  }
+
+  async function handleThumbsUp() {
+    if (resultSessionId == null) return
+    if (feedback?.rating === 'up') {
+      setFeedback(null)
+      setShowReasonPanel(false)
+      try { await clearFeedback(resultSessionId) } catch { /* silently fail, same as loadHistory */ }
+      return
+    }
+    setFeedback({ rating: 'up', reason: null, comment: null })
+    setShowReasonPanel(false)
+    try { await submitFeedback(resultSessionId, 'up') } catch { /* silently fail */ }
+  }
+
+  async function handleThumbsDown() {
+    if (resultSessionId == null) return
+    if (feedback?.rating === 'down') {
+      setFeedback(null)
+      setShowReasonPanel(false)
+      try { await clearFeedback(resultSessionId) } catch { /* silently fail */ }
+      return
+    }
+    // 立刻提交 rating=down（reason 还没选），保证最原始的负反馈信号不会因为用户没选 reason 就走掉而丢失
+    setFeedback({ rating: 'down', reason: null, comment: null })
+    setShowReasonPanel(true)
+    try {
+      const fb = await submitFeedback(resultSessionId, 'down')
+      setFeedback(fb)
+    } catch { /* silently fail */ }
+  }
+
+  async function handleReasonSelect(reason: string) {
+    if (resultSessionId == null) return
+    setFeedback(prev => ({ rating: 'down', reason, comment: prev?.comment ?? null }))
+    try {
+      const fb = await submitFeedback(resultSessionId, 'down', reason, feedbackComment || undefined)
+      setFeedback(fb)
+    } catch { /* silently fail */ }
+  }
+
+  async function handleCommentBlur() {
+    if (resultSessionId == null || feedback?.rating !== 'down') return
+    try {
+      const fb = await submitFeedback(resultSessionId, 'down', feedback.reason ?? undefined, feedbackComment || undefined)
+      setFeedback(fb)
+    } catch { /* silently fail */ }
   }
 
   const groups = groupHistory(history)
@@ -303,12 +373,69 @@ export default function ChatPage() {
                   const { main, gaps } = parseAnswer(result.answer)
                   return (
                     <div className="p-6 space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <h3 className="text-sm font-semibold text-stone-700">Answer</h3>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-stone-700">Answer</h3>
+                        </div>
+                        {resultSessionId != null && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={handleThumbsUp}
+                              aria-label="Helpful"
+                              className={`px-2 py-1 rounded-lg text-sm transition-colors ${
+                                feedback?.rating === 'up' ? 'bg-emerald-100' : 'hover:bg-stone-100'
+                              }`}
+                            >
+                              👍
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleThumbsDown}
+                              aria-label="Not helpful"
+                              className={`px-2 py-1 rounded-lg text-sm transition-colors ${
+                                feedback?.rating === 'down' ? 'bg-red-100' : 'hover:bg-stone-100'
+                              }`}
+                            >
+                              👎
+                            </button>
+                          </div>
+                        )}
                       </div>
+
+                      {feedback?.rating === 'down' && showReasonPanel && (
+                        <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+                          <p className="text-xs font-medium text-stone-500">What went wrong? (optional)</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {FEEDBACK_REASONS.map(r => (
+                              <button
+                                key={r.value}
+                                type="button"
+                                onClick={() => handleReasonSelect(r.value)}
+                                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                                  feedback.reason === r.value
+                                    ? 'bg-stone-800 text-white border-stone-800'
+                                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300'
+                                }`}
+                              >
+                                {r.label}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="text"
+                            value={feedbackComment}
+                            onChange={e => setFeedbackComment(e.target.value)}
+                            onBlur={handleCommentBlur}
+                            placeholder="Add a note (optional)"
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-400"
+                          />
+                        </div>
+                      )}
+
                       <div className="prose max-w-none text-stone-800">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{main}</ReactMarkdown>
                       </div>

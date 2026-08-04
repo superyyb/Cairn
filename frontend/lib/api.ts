@@ -148,7 +148,16 @@ export interface ArticleSource {
   similarity: number
 }
 
+export type FeedbackRating = 'up' | 'down'
+
+export interface Feedback {
+  rating: FeedbackRating
+  reason: string | null
+  comment: string | null
+}
+
 export interface AskResponse {
+  id: number | null
   question: string
   answer: string
   sources: ArticleSource[]
@@ -160,6 +169,7 @@ export interface ChatSession {
   answer: string
   sources: ArticleSource[]
   created_at: string
+  feedback: Feedback | null
 }
 
 // ===== Chat / RAG 相关 API =====
@@ -180,4 +190,23 @@ export async function getHistory(limit = 20): Promise<ChatSession[]> {
   const res = await apiFetch(`/api/chat/history?limit=${limit}`)
   if (!res.ok) throw new Error('Failed to fetch history')
   return res.json()
+}
+
+export async function submitFeedback(
+  sessionId: number,
+  rating: FeedbackRating,
+  reason?: string,
+  comment?: string
+): Promise<Feedback> {
+  const res = await apiFetch(`/api/chat/sessions/${sessionId}/feedback`, {
+    method: 'PUT',
+    body: JSON.stringify({ rating, reason, comment }),
+  })
+  if (!res.ok) throw new Error('Failed to submit feedback')
+  return res.json()
+}
+
+export async function clearFeedback(sessionId: number): Promise<void> {
+  const res = await apiFetch(`/api/chat/sessions/${sessionId}/feedback`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to clear feedback')
 }

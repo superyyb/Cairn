@@ -1,16 +1,20 @@
 """AI 检索接口"""
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.rate_limit import chat_rate_limit
 from app.core.security import get_current_user
+from app.models.chat_feedback import ChatFeedback
 from app.models.chat_session import ChatSession
 from app.models.user import User
 from app.schemas.chat import (
     AskRequest, AskResponse, ArticleSource, ChatSessionResponse,
+    FeedbackRequest, FeedbackResponse,
     SearchRequest, SearchResponse, SearchResult,
 )
 from app.services.ai_service import embed_text, generate_answer
@@ -102,6 +106,7 @@ def ask(
         db.add(chat_session)
         db.commit()
         return AskResponse(
+            id=chat_session.id,
             question=payload.question,
             answer=off_topic_answer,
             sources=[],
@@ -132,11 +137,13 @@ def ask(
     ]
 
     # 7. 保存到历史记录
+    session_id: int | None = None
     try:
         chat_session = ChatSession(user_id=current_user.id, question=payload.question, answer=answer)
         chat_session.sources = [s.model_dump(mode="json") for s in sources]
         db.add(chat_session)
         db.commit()
+        session_id = chat_session.id
         logger.info(f"Saved chat session id={chat_session.id} for user_id={current_user.id}")
     except Exception as e:
         logger.error(f"Failed to save chat session: {e}", exc_info=True)
@@ -148,6 +155,7 @@ def ask(
     )
 
     return AskResponse(
+        id=session_id,
         question=payload.question,
         answer=answer,
         sources=sources,
@@ -171,6 +179,14 @@ def get_history(
         .limit(limit)
         .all()
     )
+
+    feedback_by_session = {
+        fb.chat_session_id: fb
+        for fb in db.query(ChatFeedback).filter(
+            ChatFeedback.chat_session_id.in_([s.id for s in sessions])
+        )
+    }
+
     return [
         ChatSessionResponse(
             id=s.id,
@@ -178,6 +194,60 @@ def get_history(
             answer=s.answer,
             sources=[ArticleSource(**src) for src in s.sources],
             created_at=s.created_at,
+            feedback=FeedbackResponse.from_model(feedback_by_session[s.id]) if s.id in feedback_by_session else None,
         )
         for s in sessions
     ]
+
+
+@router.put(
+    "/sessions/{session_id}/feedback",
+    response_model=FeedbackResponse,
+    summary="对某次回答打分（👍/👎），重复提交是 upsert",
+)
+def submit_feedback(
+    session_id: int,
+    payload: FeedbackRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id, ChatSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found")
+
+    rating_bool = payload.rating == "up"
+    stmt = pg_insert(ChatFeedback).values(
+        chat_session_id=session_id,
+        user_id=current_user.id,
+        rating=rating_bool,
+        reason=payload.reason,
+        comment=payload.comment,
+    ).on_conflict_do_update(
+        index_elements=["chat_session_id"],
+        set_=dict(rating=rating_bool, reason=payload.reason, comment=payload.comment, updated_at=datetime.utcnow()),
+    ).returning(ChatFeedback)
+    # populate_existing=True 是必须的：如果这个 session 之前已经被查过一次（比如同一请求里刚查了
+    # ChatSession 所在的 session identity map 已经有旧的 ChatFeedback 实例），不加这个选项
+    # .returning(ChatFeedback) 会直接把内存里那个没刷新的旧对象吐出来，字段是 upsert 前的值，
+    # 数据库里其实已经改了，实测验证过这是真的会踩的坑，不是理论风险
+    feedback = db.execute(stmt, execution_options={"populate_existing": True}).scalar_one()
+    db.commit()
+    return FeedbackResponse.from_model(feedback)
+
+
+@router.delete(
+    "/sessions/{session_id}/feedback",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="撤销对某次回答的打分",
+)
+def clear_feedback(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(ChatFeedback).filter(
+        ChatFeedback.chat_session_id == session_id, ChatFeedback.user_id == current_user.id
+    ).delete()
+    db.commit()
