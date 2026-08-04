@@ -1,5 +1,6 @@
 """聊天/检索相关 schemas"""
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -41,9 +42,36 @@ class ArticleSource(BaseModel):
 
 
 class AskResponse(BaseModel):
+    # 保存 chat_session 失败时(见 chat.py 里那段吞异常的 try/except)老实返回 None，
+    # 不假装一定有 id 能挂反馈
+    id: int | None
     question: str
     answer: str
     sources: list[ArticleSource]
+
+
+# ===== Feedback =====
+
+FeedbackReason = Literal["wrong_info", "not_relevant", "missing_sources", "other"]
+
+
+class FeedbackRequest(BaseModel):
+    rating: Literal["up", "down"]
+    reason: FeedbackReason | None = None
+    comment: str | None = Field(default=None, max_length=500)
+
+
+class FeedbackResponse(BaseModel):
+    rating: Literal["up", "down"]
+    reason: str | None
+    comment: str | None
+
+    @classmethod
+    def from_model(cls, feedback) -> "FeedbackResponse":
+        # ChatFeedback.rating 是 bool，跟这里的 "up"/"down" 不是一个类型，
+        # 不能靠 from_attributes 自动转，必须手动映射
+        return cls(rating="up" if feedback.rating else "down", reason=feedback.reason, comment=feedback.comment)
+
 
 class ChatSessionResponse(BaseModel):
     id: int
@@ -51,5 +79,6 @@ class ChatSessionResponse(BaseModel):
     answer: str
     sources: list[ArticleSource]
     created_at: datetime
+    feedback: FeedbackResponse | None = None
 
     model_config = {"from_attributes": True}

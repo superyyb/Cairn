@@ -13,6 +13,7 @@ from app.models.user import User  # noqa: F401 (import 是为了让 Base 认识�
 from app.models.article import Article  # noqa: F401
 from app.models.tag import Tag  # noqa: F401
 from app.models.chat_session import ChatSession  # noqa: F401
+from app.models.chat_feedback import ChatFeedback  # noqa: F401
 from app.models.tag_merge import TagMerge  # noqa: F401
 from app.models.eval_question import EvalQuestion  # noqa: F401
 from app.models.eval_run import EvalRun  # noqa: F401

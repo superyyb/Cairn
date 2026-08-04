@@ -4,6 +4,7 @@ from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.models.oauth_account import OAuthAccount
 from app.models.chat_session import ChatSession
+from app.models.chat_feedback import ChatFeedback
 from app.models.tag_merge import TagMerge
 from app.models.eval_question import EvalQuestion
 from app.models.eval_run import EvalRun
