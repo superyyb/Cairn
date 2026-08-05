@@ -14,6 +14,7 @@ class ChatSession(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     sources_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    coverage_gaps: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     user = relationship("User", back_populates="chat_sessions")

@@ -55,11 +55,11 @@ def replay_one(db, feedback: ChatFeedback, session: ChatSession) -> dict | None:
     ordered_articles = [articles_by_id[aid] for aid in article_ids]
     sources_for_llm = format_sources_for_llm(ordered_articles)
 
-    answer = generate_answer(session.question, sources_for_llm)
-    if not answer:
+    generated = generate_answer(session.question, sources_for_llm)
+    if not generated:
         return {"status": "generation_failed"}
 
-    judgment = judge_generation(session.question, sources_for_llm, answer)
+    judgment = judge_generation(session.question, sources_for_llm, generated.answer)
     if not judgment:
         return {"status": "judge_failed"}
 

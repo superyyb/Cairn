@@ -39,6 +39,10 @@ class ArticleSource(BaseModel):
     url: str
     saved_at: datetime
     similarity: float
+    # 这篇文章是否被 GPT 实际写进了答案正文（对应 AnswerGeneration.cited_indices）。
+    # 默认 True 是为了兼容这个字段上线前存的历史 chat_session —— 那些数据没有这个信息，
+    # 与其猜它们"没被引用"从而被前端误归到折叠区，不如按老行为全部当作已引用展示。
+    cited: bool = True
 
 
 class AskResponse(BaseModel):
@@ -48,6 +52,7 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     sources: list[ArticleSource]
+    coverage_gaps: str | None = None
 
 
 # ===== Feedback =====
@@ -78,6 +83,7 @@ class ChatSessionResponse(BaseModel):
     question: str
     answer: str
     sources: list[ArticleSource]
+    coverage_gaps: str | None = None
     created_at: datetime
     feedback: FeedbackResponse | None = None
 

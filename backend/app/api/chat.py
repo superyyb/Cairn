@@ -120,15 +120,17 @@ def ask(
     # 4. 构造传给 GPT 的 sources（带编号）
     sources_for_llm = format_sources_for_llm(rows)
 
-    # 5. GPT 生成回答
-    answer = generate_answer(payload.question, sources_for_llm)
-    if not answer:
+    # 5. GPT 生成回答（结构化：正文 / 实际引用的 source 编号 / 覆盖空白，三个独立字段）
+    generated = generate_answer(payload.question, sources_for_llm)
+    if not generated:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service unavailable, please try again.",
         )
 
-    # 6. 组装引用来源（返回给前端展示）
+    # 6. 组装引用来源（返回给前端展示）——cited 直接用模型自己报告的 cited_indices，
+    # 不去 answer 文本里猜哪几个 [N] 出现过
+    cited_indices = set(generated.cited_indices)
     sources = [
         ArticleSource(
             index=i + 1,
@@ -137,6 +139,7 @@ def ask(
             url=row.url,
             saved_at=row.created_at,
             similarity=round(float(row.similarity), 4),
+            cited=(i + 1) in cited_indices,
         )
         for i, row in enumerate(rows)
     ]
@@ -144,7 +147,8 @@ def ask(
     # 7. 保存到历史记录
     session_id: int | None = None
     try:
-        chat_session = ChatSession(user_id=current_user.id, question=payload.question, answer=answer)
+        chat_session = ChatSession(user_id=current_user.id, question=payload.question, answer=generated.answer)
+        chat_session.coverage_gaps = generated.coverage_gaps
         chat_session.sources = [s.model_dump(mode="json") for s in sources]
         db.add(chat_session)
         db.commit()
@@ -155,15 +159,16 @@ def ask(
         db.rollback()
 
     logger.info(
-        f"RAG ask: '{payload.question[:50]}' → {len(sources)} sources, "
-        f"answer {len(answer)} chars"
+        f"RAG ask: '{payload.question[:50]}' → {len(sources)} sources "
+        f"({len(cited_indices)} cited), answer {len(generated.answer)} chars"
     )
 
     return AskResponse(
         id=session_id,
         question=payload.question,
-        answer=answer,
+        answer=generated.answer,
         sources=sources,
+        coverage_gaps=generated.coverage_gaps,
     )
 
 
