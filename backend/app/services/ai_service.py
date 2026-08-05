@@ -138,6 +138,22 @@ Analyze this article."""
 
 # ===== RAG 回答生成 =====
 
+class AnswerGeneration(BaseModel):
+    """LLM 生成的结构化回答：正文、实际引用的 source 编号、覆盖度提示都是独立字段，
+    不再靠在 markdown 正文里搜 `[N]` 或标题文字来回推——那种字符串匹配对 LLM 的输出格式没有约束力。"""
+    answer: str = Field(
+        description="The answer to the question, citing sources inline using [1], [2], etc. No heading."
+    )
+    cited_indices: list[int] = Field(
+        description="Every source index that actually appears as [N] in the answer text, and nothing else. Empty list if none were cited."
+    )
+    coverage_gaps: str | None = Field(
+        default=None,
+        description="If the question touches areas not well covered by the retrieved articles, describe what's missing "
+        "and end with 'Consider saving articles about: ...'. Null if coverage is sufficient to fully answer the question."
+    )
+
+
 def build_source_context(sources: list[dict]) -> str:
     """
     把 sources 拼成真正喂给 GPT 的那段文本 —— generate_answer 用它，
@@ -152,12 +168,12 @@ def build_source_context(sources: list[dict]) -> str:
     return "\n\n".join(context_parts)
 
 
-def generate_answer(question: str, sources: list[dict]) -> str | None:
+def generate_answer(question: str, sources: list[dict]) -> AnswerGeneration | None:
     """
-    RAG 的 Generation 步骤：把检索到的文章作为上下文，让 GPT 生成回答。
+    RAG 的 Generation 步骤：把检索到的文章作为上下文，让 GPT 生成结构化回答。
 
     sources: 每个元素是 {"index": 1, "title": ..., "ai_summary": ..., "content": ...}
-    返回结构化 markdown：库里有什么 → 回答 → 覆盖空白提示。
+    返回 AnswerGeneration：回答正文 / 实际引用的 source 编号 / 覆盖空白提示，三者都是独立字段。
     """
     if not sources:
         return None
@@ -167,21 +183,17 @@ def generate_answer(question: str, sources: list[dict]) -> str | None:
     system_prompt = """You are a helpful assistant for a personal knowledge base called Cairn.
 The user has saved technical articles to their library. Answer their question using ONLY the provided articles.
 
-Structure your response using exactly these markdown sections:
+Cite sources inline using [1], [2], etc. Only state what the articles actually say — never fabricate information.
+List every index you actually cited (every [N] that appears in your answer) in cited_indices, and nothing else.
 
-## Answer
-Answer the question based on the articles. Cite sources inline using [1], [2], etc.
-Only state what the articles actually say — never fabricate information.
-
-## ⚠️ Coverage gaps
-If the question touches areas NOT well covered by the retrieved articles, list what's missing specifically.
-End with: "Consider saving articles about: [list the missing topics]"
-If coverage is sufficient to fully answer the question, omit this section entirely.
+If the question touches areas NOT well covered by the retrieved articles, fill coverage_gaps with what's missing
+specifically, ending with "Consider saving articles about: [list the missing topics]". If coverage is sufficient
+to fully answer the question, leave coverage_gaps null.
 
 Rules:
 - IMPORTANT: Always respond in the same language as the user's question. English question → English answer. Chinese question → Chinese answer.
 - Never make up information not present in the articles
-- If the library has almost nothing relevant, say so clearly in the Answer section"""
+- If the library has almost nothing relevant, say so clearly in the answer"""
 
     user_prompt = f"""Here are the retrieved articles from the user's library:
 
@@ -189,18 +201,19 @@ Rules:
 
 Question: {question}
 
-Respond following the structure above:"""
+Respond with your answer."""
 
     try:
-        response = client.chat.completions.create(
+        response = client.beta.chat.completions.parse(
             model=settings.openai_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            response_format=AnswerGeneration,
             temperature=0.3,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.parsed
     except Exception as e:
         logger.error(f"generate_answer error: {e}")
         return None

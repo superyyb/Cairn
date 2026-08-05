@@ -125,10 +125,10 @@ def run_eval(top_k: int, similarity_threshold: float, notes: str | None, with_ge
                 max_similarity = max(similarities) if similarities else 0.0
                 if max_similarity >= similarity_threshold:
                     sources_for_llm = format_sources_for_llm(rows)
-                    answer = generate_answer(q.question_text, sources_for_llm)
-                    if answer:
-                        result.generated_answer = answer
-                        judgment = judge_generation(q.question_text, sources_for_llm, answer)
+                    generated = generate_answer(q.question_text, sources_for_llm)
+                    if generated:
+                        result.generated_answer = generated.answer
+                        judgment = judge_generation(q.question_text, sources_for_llm, generated.answer)
                         if judgment:
                             if judgment.claims:
                                 supported = [c for c in judgment.claims if c.supported]

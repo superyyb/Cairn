@@ -96,8 +96,7 @@ def judge_generation(question: str, sources: list[dict], answer: str) -> Generat
 
 Faithfulness: judge ONLY against the sources given below — not general knowledge, not what you know
 to be true from elsewhere. If the answer states something not present in the sources, mark that
-claim unsupported even if it is factually correct in the real world. Ignore the "## Coverage gaps"
-section entirely — that's the model admitting what it doesn't know, not a claim to verify.
+claim unsupported even if it is factually correct in the real world.
 
 Relevancy: judge whether the answer actually addresses the question asked, independent of whether
 it's faithful."""
