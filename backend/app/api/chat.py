@@ -49,6 +49,7 @@ def semantic_search(
     # 2. pgvector 余弦相似度检索（<=> 是余弦距离运算符，1 - distance = 相似度）
     rows = retrieve_similar_articles(db, current_user.id, query_embedding, payload.top_k)
 
+    # 3. 过滤掉相似度低于阈值的结果，和 /ask 的拒答判断保持一致
     results = [
         SearchResult(
             id=row.id,
@@ -58,6 +59,7 @@ def semantic_search(
             similarity=round(float(row.similarity), 4),
         )
         for row in rows
+        if float(row.similarity) >= RAG_SIMILARITY_THRESHOLD
     ]
 
     logger.info(
@@ -111,6 +113,9 @@ def ask(
             answer=off_topic_answer,
             sources=[],
         )
+
+    # 3.5 过滤掉相似度低于阈值的文章，避免弱相关结果混进引用来源和 GPT 上下文
+    rows = [row for row in rows if float(row.similarity) >= RAG_SIMILARITY_THRESHOLD]
 
     # 4. 构造传给 GPT 的 sources（带编号）
     sources_for_llm = format_sources_for_llm(rows)
