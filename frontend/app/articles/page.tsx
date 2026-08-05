@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { isLoggedIn } from '@/lib/auth'
-import { fetchArticles, fetchUser, apiLogout, type Article } from '@/lib/api'
+import { fetchArticles, fetchUser, apiLogout, tryRestoreSession, type Article } from '@/lib/api'
 import ArticleCard from '@/components/ArticleCard'
 import Sidebar from '@/components/Sidebar'
 
@@ -13,21 +13,29 @@ export default function ArticlesPage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [showStarred, setShowStarred] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
-    if (!isLoggedIn()) router.replace('/login')
+    async function checkAuth() {
+      if (isLoggedIn() || await tryRestoreSession()) {
+        setAuthChecked(true)
+      } else {
+        router.replace('/login')
+      }
+    }
+    checkAuth()
     const params = new URLSearchParams(window.location.search)
     if (params.get('starred') === 'true') setShowStarred(true)
   }, [router])
 
   const { data: articles = [], error, isLoading, mutate } = useSWR(
-    isLoggedIn() ? '/api/articles' : null,
+    authChecked ? '/api/articles' : null,
     fetchArticles,
     { refreshInterval: articles => articles?.some(a => !a.ai_summary) ? 5000 : 0 },
   )
 
   const { data: user } = useSWR(
-    isLoggedIn() ? '/api/users/me' : null,
+    authChecked ? '/api/users/me' : null,
     fetchUser,
   )
 

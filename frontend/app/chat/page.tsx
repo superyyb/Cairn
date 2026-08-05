@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { isLoggedIn } from '@/lib/auth'
 import {
-  askQuestion, getHistory, fetchUser, apiLogout, submitFeedback, clearFeedback,
+  askQuestion, getHistory, fetchUser, apiLogout, submitFeedback, clearFeedback, tryRestoreSession,
   type AskResponse, type ChatSession, type Feedback,
 } from '@/lib/api'
 import ReactMarkdown from 'react-markdown'
@@ -89,8 +89,9 @@ export default function ChatPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [showReasonPanel, setShowReasonPanel] = useState(false)
   const [feedbackComment, setFeedbackComment] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
 
-  const { data: user } = useSWR(isLoggedIn() ? '/api/users/me' : null, fetchUser)
+  const { data: user } = useSWR(authChecked ? '/api/users/me' : null, fetchUser)
   const initial = user?.email?.charAt(0).toUpperCase() ?? 'A'
 
   const loadHistory = useCallback(async () => {
@@ -103,8 +104,15 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace('/login'); return }
-    loadHistory()
+    async function checkAuth() {
+      if (isLoggedIn() || await tryRestoreSession()) {
+        setAuthChecked(true)
+        loadHistory()
+      } else {
+        router.replace('/login')
+      }
+    }
+    checkAuth()
   }, [router, loadHistory])
 
   function handleLogout() {
