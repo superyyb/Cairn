@@ -73,7 +73,6 @@ export default function ChatPage() {
   const [showReasonPanel, setShowReasonPanel] = useState(false)
   const [feedbackComment, setFeedbackComment] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
-  const [showRelated, setShowRelated] = useState(false)
 
   const { data: user } = useSWR(authChecked ? '/api/users/me' : null, fetchUser)
   const initial = user?.email?.charAt(0).toUpperCase() ?? 'A'
@@ -114,7 +113,6 @@ export default function ChatPage() {
     setFeedback(null)
     setShowReasonPanel(false)
     setFeedbackComment('')
-    setShowRelated(false)
     try {
       const data = await askQuestion(question.trim())
       setResult(data)
@@ -141,7 +139,6 @@ export default function ChatPage() {
     setFeedback(session.feedback ?? null)
     setShowReasonPanel(false)
     setFeedbackComment('')
-    setShowRelated(false)
     setError('')
   }
 
@@ -440,7 +437,7 @@ export default function ChatPage() {
                                 {source.title}
                               </p>
                               <p className="text-xs text-stone-400 mt-0.5">
-                                Saved {new Date(source.saved_at).toLocaleDateString()}
+                                Saved {new Date(source.saved_at).toLocaleDateString()} · {Math.round(source.similarity * 100)}% match
                               </p>
                             </div>
                             <svg className="w-4 h-4 text-stone-300 group-hover:text-indigo-400 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,46 +451,40 @@ export default function ChatPage() {
 
                   {relatedSources.length > 0 && (
                     <div className="p-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowRelated(p => !p)}
-                        className="flex items-center gap-2 w-full text-left"
-                      >
+                      <div className="flex items-center gap-2 mb-4">
                         <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0c-.943.945-1.788 2.02-1.788 3.343h-3.496c0-1.324-.845-2.398-1.788-3.343z" />
                         </svg>
-                        <span className="text-sm font-semibold text-stone-700 flex-1">
+                        <h3 className="text-sm font-semibold text-stone-700">
                           Also in your library <span className="font-normal text-stone-400">({relatedSources.length})</span>
-                        </span>
-                        <svg className={`w-4 h-4 text-stone-400 shrink-0 transition-transform ${showRelated ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                      {showRelated && (
-                        <div className="space-y-2 mt-4">
-                          {relatedSources.map(source => (
-                            <a
-                              key={source.id}
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-start gap-3 p-3 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition-colors group"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-base font-medium text-stone-900 group-hover:text-stone-700 truncate">
-                                  {source.title}
-                                </p>
-                                <p className="text-xs text-stone-400 mt-0.5">
-                                  Saved {new Date(source.saved_at).toLocaleDateString()} · {Math.round(source.similarity * 100)}% match
-                                </p>
-                              </div>
-                              <svg className="w-4 h-4 text-stone-300 group-hover:text-stone-400 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </a>
-                          ))}
-                        </div>
-                      )}
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        {relatedSources.map(source => (
+                          <a
+                            key={source.id}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-3 p-3 rounded-xl border border-indigo-100/60 bg-indigo-50/20 hover:border-indigo-200 hover:bg-indigo-50/40 transition-colors group"
+                          >
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                              {source.index}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base font-medium text-stone-900 group-hover:text-indigo-700 truncate">
+                                {source.title}
+                              </p>
+                              <p className="text-xs text-stone-400 mt-0.5">
+                                Saved {new Date(source.saved_at).toLocaleDateString()} · {Math.round(source.similarity * 100)}% match
+                              </p>
+                            </div>
+                            <svg className="w-4 h-4 text-stone-300 group-hover:text-indigo-400 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
