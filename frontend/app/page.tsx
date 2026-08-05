@@ -1,4 +1,21 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { isLoggedIn } from '@/lib/auth'
+import { tryRestoreSession } from '@/lib/api'
+
 export default function Home() {
+  const [loggedIn, setLoggedIn] = useState(false)
+
+  useEffect(() => {
+    if (isLoggedIn()) {
+      setLoggedIn(true)
+      return
+    }
+    tryRestoreSession().then(setLoggedIn)
+  }, [])
+
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
@@ -13,9 +30,15 @@ export default function Home() {
           <span className="font-semibold text-stone-900">Cairn</span>
         </div>
         <div className="flex items-center gap-2">
-          <a href="/login" className="px-4 py-2 text-sm text-stone-600 hover:text-stone-900 border border-stone-200 rounded-lg transition-colors">
-            Sign in
-          </a>
+          {loggedIn ? (
+            <Link href="/articles" className="px-4 py-2 text-sm text-stone-600 hover:text-stone-900 border border-stone-200 rounded-lg transition-colors">
+              Go to Library
+            </Link>
+          ) : (
+            <a href="/login" className="px-4 py-2 text-sm text-stone-600 hover:text-stone-900 border border-stone-200 rounded-lg transition-colors">
+              Sign in
+            </a>
+          )}
           <a href="/login" className="px-4 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
             Get extension
           </a>
@@ -43,12 +66,21 @@ export default function Home() {
             </svg>
             Get Chrome Extension
           </a>
-          <a href="/login" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 hover:border-stone-300 rounded-lg transition-colors">
-            Sign in
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
+          {loggedIn ? (
+            <Link href="/articles" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 hover:border-stone-300 rounded-lg transition-colors">
+              Go to Library
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          ) : (
+            <a href="/login" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 hover:border-stone-300 rounded-lg transition-colors">
+              Sign in
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          )}
         </div>
       </section>
 

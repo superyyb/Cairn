@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { type Article } from '@/lib/api'
 
 interface Props {
@@ -72,7 +73,7 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
   return (
     <aside className="w-72 shrink-0 sticky top-0 h-screen flex flex-col border-r border-stone-200/60 bg-white px-4 py-4">
       {/* Logo */}
-      <a href="/" className="flex items-center gap-3 px-3 py-3 mb-4">
+      <Link href="/" className="flex items-center gap-3 px-3 py-3 mb-4">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
           <ellipse cx="12" cy="20" rx="7" ry="2.5" fill="#4f46e5" opacity="0.9"/>
           <ellipse cx="12" cy="14.5" rx="5" ry="2" fill="#4f46e5" opacity="0.8"/>
@@ -80,12 +81,12 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
           <ellipse cx="12" cy="5.5" rx="2" ry="1.5" fill="#4f46e5" opacity="0.6"/>
         </svg>
         <span className="font-bold text-stone-900 text-xl">Cairn</span>
-      </a>
+      </Link>
 
       {/* Nav */}
       <nav className="space-y-0.5">
         {navItems.map(item => (
-          <a
+          <Link
             key={item.href}
             href={item.href}
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-base transition-colors ${
@@ -96,7 +97,7 @@ export default function Sidebar({ articles, activePage, showStarred, onStarredTo
           >
             {item.icon}
             {item.label}
-          </a>
+          </Link>
         ))}
         <button
           onClick={onStarredToggle}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { isLoggedIn } from '@/lib/auth'
-import { fetchArticle, type Article } from '@/lib/api'
+import { fetchArticle, tryRestoreSession, type Article } from '@/lib/api'
 
 function extractDomain(url: string): string {
   try {
@@ -21,11 +21,17 @@ export default function ArticleDetailPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace('/login'); return }
-    fetchArticle(Number(params.id))
-      .then(setArticle)
-      .catch(err => setError(err instanceof Error ? err.message : 'Something went wrong'))
-      .finally(() => setLoading(false))
+    async function load() {
+      if (!isLoggedIn() && !await tryRestoreSession()) {
+        router.replace('/login')
+        return
+      }
+      fetchArticle(Number(params.id))
+        .then(setArticle)
+        .catch(err => setError(err instanceof Error ? err.message : 'Something went wrong'))
+        .finally(() => setLoading(false))
+    }
+    load()
   }, [params.id, router])
 
   return (
