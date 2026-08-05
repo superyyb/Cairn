@@ -146,6 +146,7 @@ export interface ArticleSource {
   url: string
   saved_at: string
   similarity: number
+  cited: boolean
 }
 
 export type FeedbackRating = 'up' | 'down'
@@ -161,6 +162,7 @@ export interface AskResponse {
   question: string
   answer: string
   sources: ArticleSource[]
+  coverage_gaps: string | null
 }
 
 export interface ChatSession {
@@ -168,6 +170,7 @@ export interface ChatSession {
   question: string
   answer: string
   sources: ArticleSource[]
+  coverage_gaps: string | null
   created_at: string
   feedback: Feedback | null
 }
