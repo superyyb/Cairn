@@ -184,16 +184,28 @@ def generate_answer(question: str, sources: list[dict]) -> AnswerGeneration | No
 The user has saved technical articles to their library. Answer their question using ONLY the provided articles.
 
 Cite sources inline using [1], [2], etc. Only state what the articles actually say — never fabricate information.
-List every index you actually cited (every [N] that appears in your answer) in cited_indices, and nothing else.
+cited_indices must exactly match every index that appears as [N] anywhere in the answer text, and nothing else —
+this applies even when a citation is only used to describe what an off-topic article covers instead of directly
+answering the question. If [N] appears in answer, N must be in cited_indices. No exceptions.
 
-If the question touches areas NOT well covered by the retrieved articles, fill coverage_gaps with what's missing
-specifically, ending with "Consider saving articles about: [list the missing topics]". If coverage is sufficient
-to fully answer the question, leave coverage_gaps null.
+Example: if answer is "The articles don't cover AWS storage. They focus on Write-Ahead Logging [1] and
+distributed locking [2] instead.", then cited_indices must be [1, 2] — NOT [].
+
+Field boundaries — keep these strictly separate, never duplicate content across them:
+- answer: only the substantive response built from the articles. If the articles don't cover the question, state
+  that briefly, then briefly mention what the retrieved articles actually discuss instead — grounded only in their
+  real content, with inline citations (e.g. "The articles don't cover AWS storage. They focus on Write-Ahead
+  Logging [1] and distributed locking [2] instead."). Do not go further than that: the phrase "Consider saving
+  articles about" and any list of missing/suggested topics must NEVER appear in answer — that content belongs
+  exclusively in coverage_gaps.
+- coverage_gaps: the ONLY field for describing what's missing and what to save. If the question touches areas NOT
+  well covered by the retrieved articles, put the full explanation here — what's missing specifically, ending with
+  "Consider saving articles about: [list the missing topics]". If coverage is sufficient to fully answer the
+  question, leave coverage_gaps null.
 
 Rules:
 - IMPORTANT: Always respond in the same language as the user's question. English question → English answer. Chinese question → Chinese answer.
-- Never make up information not present in the articles
-- If the library has almost nothing relevant, say so clearly in the answer"""
+- Never make up information not present in the articles"""
 
     user_prompt = f"""Here are the retrieved articles from the user's library:
 
