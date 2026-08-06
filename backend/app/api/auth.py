@@ -31,6 +31,10 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 COOKIE_NAME = "refresh_token"
 
+# 邮箱不存在时也要跑一次 bcrypt 比对,不然"用户不存在"分支比"密码错误"分支快很多,
+# 响应时间差本身就能被用来判断一个邮箱是否已注册(timing attack)。
+_DUMMY_PASSWORD_HASH = hash_password(secrets.token_hex(32))
+
 
 def _set_refresh_cookie(response: Response, raw_token: str, expires_days: int) -> None:
     response.set_cookie(
@@ -89,7 +93,9 @@ def login(
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    password_hash = user.password_hash if user else _DUMMY_PASSWORD_HASH
+    password_ok = verify_password(form_data.password, password_hash)
+    if not user or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
