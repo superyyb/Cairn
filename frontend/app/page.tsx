@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { isLoggedIn } from '@/lib/auth'
-import { tryRestoreSession } from '@/lib/api'
+import { fetchArticles, tryRestoreSession } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 
 export default function Home() {
@@ -17,6 +18,8 @@ export default function Home() {
     }
     tryRestoreSession().then(setLoggedIn)
   }, [])
+
+  const { data: articles = [] } = useSWR(loggedIn ? '/api/articles' : null, fetchArticles)
 
   const marketingContent = (
     <>
@@ -146,7 +149,7 @@ export default function Home() {
     return (
       <div className="flex min-h-screen bg-white">
         <Sidebar
-          articles={[]}
+          articles={articles}
           activePage="home"
           onStarredToggle={() => router.push('/articles?starred=true')}
         />

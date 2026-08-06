@@ -10,11 +10,13 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 CHAT_LIMIT = 20         # questions per day
+SEARCH_LIMIT = 50       # searches per day
 ARTICLE_LIMIT = 50      # saves per day
 WINDOW_24H = 86400
 
 LOGIN_LIMIT = 10        # attempts per 15 min
 REFRESH_LIMIT = 20      # attempts per 15 min
+REGISTER_LIMIT = 5      # attempts per 15 min
 WINDOW_15M = 900
 
 _redis_client: redis.Redis | None = None
@@ -53,8 +55,17 @@ def refresh_rate_limit(request: Request) -> None:
     _check_limit(ip, f"rate:refresh:{ip}", REFRESH_LIMIT, "refresh attempts per 15 minutes", WINDOW_15M)
 
 
+def register_rate_limit(request: Request) -> None:
+    ip = request.client.host if request.client else "unknown"
+    _check_limit(ip, f"rate:register:{ip}", REGISTER_LIMIT, "registration attempts per 15 minutes", WINDOW_15M)
+
+
 def chat_rate_limit(current_user: User = Depends(get_current_user)) -> None:
     _check_limit(current_user.id, f"rate:chat:{current_user.id}", CHAT_LIMIT, "questions per day")
+
+
+def search_rate_limit(current_user: User = Depends(get_current_user)) -> None:
+    _check_limit(current_user.id, f"rate:search:{current_user.id}", SEARCH_LIMIT, "searches per day")
 
 
 def article_rate_limit(current_user: User = Depends(get_current_user)) -> None:

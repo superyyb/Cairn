@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import useSWR from 'swr'
 import { isLoggedIn } from '@/lib/auth'
-import { fetchArticle, tryRestoreSession, type Article } from '@/lib/api'
+import { fetchArticle, fetchArticles, tryRestoreSession, type Article } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 
 function extractDomain(url: string): string {
@@ -20,6 +21,7 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<Article | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -27,6 +29,7 @@ export default function ArticleDetailPage() {
         router.replace('/login')
         return
       }
+      setAuthChecked(true)
       fetchArticle(Number(params.id))
         .then(setArticle)
         .catch(err => setError(err instanceof Error ? err.message : 'Something went wrong'))
@@ -35,10 +38,12 @@ export default function ArticleDetailPage() {
     load()
   }, [params.id, router])
 
+  const { data: articles = [] } = useSWR(authChecked ? '/api/articles' : null, fetchArticles)
+
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-indigo-50/40 via-white to-white">
       <Sidebar
-        articles={[]}
+        articles={articles}
         activePage="library"
         onStarredToggle={() => router.push('/articles?starred=true')}
       />

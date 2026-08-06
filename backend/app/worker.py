@@ -41,13 +41,7 @@ async def process_article_task(ctx, article_id: int) -> None:
         raise Retry(defer=min(2 ** job_try, 30))
 
 
-async def reconcile_stuck_articles(ctx) -> None:
-    """
-    兜底巡检:处理"worker 恰好在最后一次重试执行到一半被杀掉"这种边界情况。
-    那种情况下 arq 自己的重试次数预检查会在我们的代码跑起来之前就短路掉,
-    process_article_task 永远不会再被调用,status 会卡在 processing 出不来。
-    这里定期扫一遍卡太久的文章,直接标 failed。
-    """
+def _reconcile_stuck_articles_sync() -> list[int]:
     from app.core.database import SessionLocal
     from app.models.article import Article
 
@@ -65,6 +59,21 @@ async def reconcile_stuck_articles(ctx) -> None:
 
     for article_id in stuck_ids:
         mark_article_failed(article_id)
+
+    return stuck_ids
+
+
+async def reconcile_stuck_articles(ctx) -> None:
+    """
+    兜底巡检:处理"worker 恰好在最后一次重试执行到一半被杀掉"这种边界情况。
+    那种情况下 arq 自己的重试次数预检查会在我们的代码跑起来之前就短路掉,
+    process_article_task 永远不会再被调用,status 会卡在 processing 出不来。
+    这里定期扫一遍卡太久的文章,直接标 failed。
+
+    查询 + mark_article_failed 都是同步 SQLAlchemy 调用,和 process_article_task
+    一样丢进 asyncio.to_thread,避免这个 cron job 挡住 arq 的事件循环。
+    """
+    stuck_ids = await asyncio.to_thread(_reconcile_stuck_articles_sync)
 
     if stuck_ids:
         logger.warning(f"Reconciled {len(stuck_ids)} stuck article(s): {stuck_ids}")
