@@ -16,6 +16,7 @@ WINDOW_24H = 86400
 
 LOGIN_LIMIT = 10        # attempts per 15 min
 REFRESH_LIMIT = 20      # attempts per 15 min
+REGISTER_LIMIT = 5      # attempts per 15 min
 WINDOW_15M = 900
 
 _redis_client: redis.Redis | None = None
@@ -52,6 +53,11 @@ def login_rate_limit(request: Request) -> None:
 def refresh_rate_limit(request: Request) -> None:
     ip = request.client.host if request.client else "unknown"
     _check_limit(ip, f"rate:refresh:{ip}", REFRESH_LIMIT, "refresh attempts per 15 minutes", WINDOW_15M)
+
+
+def register_rate_limit(request: Request) -> None:
+    ip = request.client.host if request.client else "unknown"
+    _check_limit(ip, f"rate:register:{ip}", REGISTER_LIMIT, "registration attempts per 15 minutes", WINDOW_15M)
 
 
 def chat_rate_limit(current_user: User = Depends(get_current_user)) -> None:

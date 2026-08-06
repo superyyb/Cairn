@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.rate_limit import register_rate_limit
 from app.core.security import get_current_user, hash_password
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
@@ -12,7 +13,11 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 #status_code=201 —— HTTP 规范:创建资源成功返回 201(Created)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+def register(
+    user_in: UserCreate,
+    _: None = Depends(register_rate_limit),
+    db: Session = Depends(get_db),
+):
     """
     Register a new user.
 
