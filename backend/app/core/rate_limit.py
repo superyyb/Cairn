@@ -10,6 +10,7 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 CHAT_LIMIT = 20         # questions per day
+SEARCH_LIMIT = 50       # searches per day
 ARTICLE_LIMIT = 50      # saves per day
 WINDOW_24H = 86400
 
@@ -55,6 +56,10 @@ def refresh_rate_limit(request: Request) -> None:
 
 def chat_rate_limit(current_user: User = Depends(get_current_user)) -> None:
     _check_limit(current_user.id, f"rate:chat:{current_user.id}", CHAT_LIMIT, "questions per day")
+
+
+def search_rate_limit(current_user: User = Depends(get_current_user)) -> None:
+    _check_limit(current_user.id, f"rate:search:{current_user.id}", SEARCH_LIMIT, "searches per day")
 
 
 def article_rate_limit(current_user: User = Depends(get_current_user)) -> None:

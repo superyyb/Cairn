@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.rate_limit import chat_rate_limit
+from app.core.rate_limit import chat_rate_limit, search_rate_limit
 from app.core.security import get_current_user
 from app.models.chat_feedback import ChatFeedback
 from app.models.chat_session import ChatSession
@@ -36,6 +36,7 @@ RAG_SIMILARITY_THRESHOLD = 0.3
 def semantic_search(
     payload: SearchRequest,
     current_user: User = Depends(get_current_user),
+    _: None = Depends(search_rate_limit),
     db: Session = Depends(get_db),
 ):
     # 1. 把用户问题向量化
