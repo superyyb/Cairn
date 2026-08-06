@@ -1,6 +1,20 @@
 """通用工具函数"""
 import hashlib
+from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+
+def utc_now() -> datetime:
+    """
+    当前 UTC 时间,返回 naive datetime(不带 tzinfo)。
+
+    数据库里所有时间列都是不带时区的 timestamp,全仓库也统一用 naive 时间比较/存储。
+    `datetime.utcnow()` 在 Python 3.12 起被弃用,但直接换成 `datetime.now(timezone.utc)`
+    会返回 aware datetime——存进 naive 列时,psycopg 可能按会话时区悄悄转换、
+    和其他 naive 时间比较时也会直接报 TypeError。这里用 `.replace(tzinfo=None)`
+    去掉 tzinfo,保持和原来 `utcnow()` 完全一样的行为,只是换个不会被弃用的写法。
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # 常见追踪参数,参考 AdGuard / uBlock Origin 的 tracking-param 规则摘取,
 # 不是我们自己发明的清单——新的追踪参数出现时,加一行就行。

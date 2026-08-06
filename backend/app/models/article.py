@@ -5,6 +5,7 @@ from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Table, Colum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import utc_now
 from pgvector.sqlalchemy import Vector
 
 
@@ -56,11 +57,11 @@ class Article(Base):
 )
     
     # 时间戳
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, 
-        default=datetime.utcnow, 
-        onupdate=datetime.utcnow,
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
     

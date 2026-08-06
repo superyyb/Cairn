@@ -1,9 +1,10 @@
 """定期清理过期和已吊销的 refresh token"""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.core.database import SessionLocal
+from app.core.utils import utc_now
 from app.models.refresh_token import RefreshToken
 
 logger = logging.getLogger(__name__)
@@ -17,11 +18,11 @@ async def cleanup_refresh_tokens() -> None:
         try:
             db = SessionLocal()
             try:
-                revoked_cutoff = datetime.utcnow() - timedelta(days=REVOKED_RETAIN_DAYS)
+                revoked_cutoff = utc_now() - timedelta(days=REVOKED_RETAIN_DAYS)
                 deleted = (
                     db.query(RefreshToken)
                     .filter(
-                        (RefreshToken.expires_at < datetime.utcnow())
+                        (RefreshToken.expires_at < utc_now())
                         | (RefreshToken.revoked_at < revoked_cutoff)
                     )
                     .delete(synchronize_session=False)

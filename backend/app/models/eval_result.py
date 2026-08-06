@@ -6,6 +6,7 @@ from sqlalchemy import Text, Float, Boolean, Integer, String, ForeignKey, Unique
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class EvalResult(Base):
@@ -48,7 +49,7 @@ class EvalResult(Base):
     judge_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     top_k_used: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     @property
     def retrieved_article_ids(self) -> list[int]:

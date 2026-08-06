@@ -12,9 +12,10 @@ reason 是事后可选补充的，NULL 占比高说明用户懒得选 chip，是
     uv run python -m app.eval.feedback_report --days 7 --recent 20
 """
 import argparse
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.core.database import SessionLocal
+from app.core.utils import utc_now
 from app.models.chat_feedback import ChatFeedback
 from app.models.chat_session import ChatSession
 
@@ -24,7 +25,7 @@ MIN_SAMPLE_SIZE = 30
 def feedback_report(days: int, recent: int):
     db = SessionLocal()
     try:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = utc_now() - timedelta(days=days)
         rows = db.query(ChatFeedback).filter(ChatFeedback.created_at >= since).all()
 
         total = len(rows)

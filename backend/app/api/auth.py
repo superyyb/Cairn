@@ -1,7 +1,7 @@
 """鉴权相关 API"""
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -20,6 +20,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.core.utils import utc_now
 from app.models.oauth_account import OAuthAccount
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -72,7 +73,7 @@ def _issue_tokens(
         user_id=user_id,
         token_hash=token_hash,
         client_type=client_type,
-        expires_at=datetime.utcnow() + timedelta(days=expires_days),
+        expires_at=utc_now() + timedelta(days=expires_days),
     ))
     db.commit()
 
@@ -196,15 +197,15 @@ def refresh(
         db.query(RefreshToken).filter(
             RefreshToken.user_id == db_token.user_id,
             RefreshToken.revoked_at.is_(None),
-        ).update({"revoked_at": datetime.utcnow()})
+        ).update({"revoked_at": utc_now()})
         db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalidated. Please log in again.")
 
-    if db_token.expires_at < datetime.utcnow():
+    if db_token.expires_at < utc_now():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     # Rotate: revoke old token, issue new pair
-    db_token.revoked_at = datetime.utcnow()
+    db_token.revoked_at = utc_now()
     db.commit()
 
     return _issue_tokens(db, response, db_token.user_id, client_type)
@@ -230,7 +231,7 @@ def logout(
             RefreshToken.revoked_at.is_(None),
         ).first()
         if db_token:
-            db_token.revoked_at = datetime.utcnow()
+            db_token.revoked_at = utc_now()
             db.commit()
 
     if client_type == "web":

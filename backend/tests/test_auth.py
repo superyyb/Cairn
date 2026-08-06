@@ -1,8 +1,9 @@
 """覆盖 /api/auth/* 和 /api/users/register —— 重点是登录时序防护、
 refresh token 轮换 + 复用检测这类有状态、错了很隐蔽的逻辑。"""
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import app.api.auth as auth_module
+from app.core.utils import utc_now
 
 
 # ---------- register ----------
@@ -148,7 +149,7 @@ def test_refresh_reuse_of_revoked_token_kills_all_sessions(client, make_user):
 
 def test_refresh_expired_token_rejected(client, make_user, make_refresh_token):
     user = make_user(email="expired@example.com")
-    raw, _ = make_refresh_token(user.id, expires_at=datetime.utcnow() - timedelta(days=1))
+    raw, _ = make_refresh_token(user.id, expires_at=utc_now() - timedelta(days=1))
 
     resp = client.post("/api/auth/refresh", headers={"Cookie": f"refresh_token={raw}"})
     assert resp.status_code == 401

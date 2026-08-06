@@ -6,6 +6,7 @@ from sqlalchemy import String, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class EvalQuestion(Base):
@@ -35,7 +36,7 @@ class EvalQuestion(Base):
     external_id: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     @property
     def expected_article_ids(self) -> list[int]:
