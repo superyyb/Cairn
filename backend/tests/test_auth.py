@@ -126,6 +126,16 @@ def test_refresh_rotates_token(client, make_user):
     assert new_token is not None
     assert new_token != old_token
 
+    # State 2: new_token 必须是可用的活跃 token,能继续正常轮换
+    # (必须先测这个 —— 如果先用 old_token 触发下面的 reuse 检测,会连坐撤销
+    # new_token,导致这里失败,那测的就是另一条逻辑了)
+    next_refresh = client.post("/api/auth/refresh", headers={"Cookie": f"refresh_token={new_token}"})
+    assert next_refresh.status_code == 200
+
+    # State 2: old_token 必须真的失效,而不只是"生成了个不同的字符串"
+    old_reuse = client.post("/api/auth/refresh", headers={"Cookie": f"refresh_token={old_token}"})
+    assert old_reuse.status_code == 401
+
 
 def test_refresh_reuse_of_revoked_token_kills_all_sessions(client, make_user):
     make_user(email="reuse@example.com", password="mypassword1")
