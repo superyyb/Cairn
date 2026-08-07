@@ -6,6 +6,7 @@ app.core.config.Settings() 是在 import 的时候就读一次 env,读完就定�
 """
 import os
 import re
+import secrets
 
 from dotenv import load_dotenv
 
@@ -21,10 +22,13 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401 — 把所有 ORM 模型注册进 Base.metadata,create_all 才能建全所有表
+from app.core.arq_pool import get_arq_pool
 from app.core.config import settings
 from app.core.database import Base, get_db
 from app.core.rate_limit import get_redis
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password
+from app.core.utils import hash_url
+from app.models.article import Article
 from app.models.user import User
 from main import app as fastapi_app
 
@@ -70,19 +74,31 @@ def db_session():
         connection.close()
 
 
+class _FakeArqPool:
+    """save_article 需要 enqueue 一个 arq job——测试不需要真的处理它,记录调用就行。"""
+
+    def __init__(self):
+        self.enqueued = []
+
+    async def enqueue_job(self, task_name, *args, **kwargs):
+        self.enqueued.append((task_name, args, kwargs))
+
+
 @pytest.fixture
 def client(db_session):
     """
-    TestClient,把 get_db 依赖换成上面这个受控的 db_session。
+    TestClient,把 get_db 依赖换成上面这个受控的 db_session,
+    把 get_arq_pool 换成假的连接池。
 
     注意:没有用 `with TestClient(...) as c` —— 那样会触发 main.py 里的
-    lifespan(启动 arq 连接池 + 定时清理任务),而 auth/rate-limit 测试都不需要它们,
+    lifespan(启动真的 arq 连接池 + 定时清理任务),这里的测试都不需要它们真的跑,
     不启动能让测试更快、更少额外依赖。
     """
     def _get_db_override():
         yield db_session
 
     fastapi_app.dependency_overrides[get_db] = _get_db_override
+    fastapi_app.dependency_overrides[get_arq_pool] = lambda: _FakeArqPool()
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
 
@@ -127,5 +143,47 @@ def make_refresh_token(db_session):
         db_session.add(token)
         db_session.commit()
         return raw, token
+
+    return _make
+
+
+@pytest.fixture
+def make_article(db_session):
+    """make_article(user_id, ...) 直接建一篇文章,绕开真正的 save_article 端点(那个要走 arq)。"""
+    def _make(
+        user_id,
+        title="Test Article",
+        url=None,
+        content="Some article content.",
+        ai_summary=None,
+        embedding=None,
+        status="done",
+    ):
+        if url is None:
+            url = f"https://example.com/{secrets.token_hex(8)}"
+        article = Article(
+            user_id=user_id,
+            url=url,
+            url_hash=hash_url(url),
+            title=title,
+            content=content,
+            ai_summary=ai_summary,
+            embedding=embedding,
+            status=status,
+        )
+        db_session.add(article)
+        db_session.commit()
+        db_session.refresh(article)
+        return article
+
+    return _make
+
+
+@pytest.fixture
+def auth_header():
+    """auth_header(user) 生成一个能直接用在请求 headers 里的 Bearer token。"""
+    def _make(user):
+        token = create_access_token(subject=user.id)
+        return {"Authorization": f"Bearer {token}"}
 
     return _make
