@@ -4,13 +4,14 @@
 """
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from arq import Retry, cron
 from arq.connections import RedisSettings
 
 import app.models  # noqa: F401 — registers all ORM models before mapper resolves relationships
 from app.core.config import settings
+from app.core.utils import utc_now
 from app.services.ai_service import mark_article_failed, process_article_in_background
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def _reconcile_stuck_articles_sync() -> list[int]:
     from app.core.database import SessionLocal
     from app.models.article import Article
 
-    threshold = datetime.utcnow() - timedelta(seconds=JOB_TIMEOUT_SECONDS * 3)
+    threshold = utc_now() - timedelta(seconds=JOB_TIMEOUT_SECONDS * 3)
     db = SessionLocal()
     try:
         stuck_ids = [

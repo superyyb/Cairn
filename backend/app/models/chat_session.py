@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class ChatSession(Base):
@@ -15,7 +16,7 @@ class ChatSession(Base):
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     sources_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     coverage_gaps: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     user = relationship("User", back_populates="chat_sessions")
 

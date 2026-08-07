@@ -22,9 +22,10 @@ user_id 重放，所以这里只测生成层一致性，不碰 eval_questions/ev
 import argparse
 import csv as csv_module
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.core.database import SessionLocal
+from app.core.utils import utc_now
 from app.models.article import Article
 from app.models.chat_feedback import ChatFeedback
 from app.models.chat_session import ChatSession
@@ -85,7 +86,7 @@ def replay_feedback(limit: int, since_days: int | None, csv_path: str | None):
             ChatFeedback.reviewed == False,  # noqa: E712
         )
         if since_days is not None:
-            query = query.filter(ChatFeedback.created_at >= datetime.utcnow() - timedelta(days=since_days))
+            query = query.filter(ChatFeedback.created_at >= utc_now() - timedelta(days=since_days))
         pending = query.order_by(ChatFeedback.created_at.desc()).limit(limit).all()
 
         print(f"=== Replaying {len(pending)} unreviewed \U0001f44e (real OpenAI calls, non-zero cost) ===")

@@ -15,11 +15,11 @@ embedding-only 检查，不该是每次跑都默认要花的钱。
 import argparse
 import logging
 from collections import defaultdict
-from datetime import datetime
 
 from app.api.chat import RAG_SIMILARITY_THRESHOLD
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.utils import utc_now
 from app.eval.seed_corpus import EVAL_USER_EMAIL
 from app.models.eval_question import EvalQuestion
 from app.models.eval_result import EvalResult
@@ -66,7 +66,7 @@ def run_eval(top_k: int, similarity_threshold: float, notes: str | None, with_ge
             print("No eval questions found — run seed_synthetic_questions / load_adversarial_questions first.")
             return
 
-        run = EvalRun(eval_user_id=eval_user.id, started_at=datetime.utcnow(), notes=notes)
+        run = EvalRun(eval_user_id=eval_user.id, started_at=utc_now(), notes=notes)
         run.config_snapshot = {
             "similarity_threshold": similarity_threshold,
             "embedding_model": settings.embedding_model,
@@ -153,7 +153,7 @@ def run_eval(top_k: int, similarity_threshold: float, notes: str | None, with_ge
             by_category[q.category].append(result)
 
         db.commit()
-        run.finished_at = datetime.utcnow()
+        run.finished_at = utc_now()
         db.commit()
 
         print(

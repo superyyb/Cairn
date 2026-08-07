@@ -5,6 +5,7 @@ from sqlalchemy import String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class OAuthAccount(Base):
@@ -15,7 +16,7 @@ class OAuthAccount(Base):
     provider: Mapped[str] = mapped_column(String(20), nullable=False)          # "google"
     provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False) # Google sub
     email: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     user = relationship("User", back_populates="oauth_accounts")
 

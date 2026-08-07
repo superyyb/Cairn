@@ -1,6 +1,5 @@
 """AI 检索接口"""
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.rate_limit import chat_rate_limit, search_rate_limit
 from app.core.security import get_current_user
+from app.core.utils import utc_now
 from app.models.chat_feedback import ChatFeedback
 from app.models.chat_session import ChatSession
 from app.models.user import User
@@ -237,7 +237,7 @@ def submit_feedback(
         comment=payload.comment,
     ).on_conflict_do_update(
         index_elements=["chat_session_id"],
-        set_=dict(rating=rating_bool, reason=payload.reason, comment=payload.comment, updated_at=datetime.utcnow()),
+        set_=dict(rating=rating_bool, reason=payload.reason, comment=payload.comment, updated_at=utc_now()),
     ).returning(ChatFeedback)
     # populate_existing=True 是必须的：如果这个 session 之前已经被查过一次（比如同一请求里刚查了
     # ChatSession 所在的 session identity map 已经有旧的 ChatFeedback 实例），不加这个选项
